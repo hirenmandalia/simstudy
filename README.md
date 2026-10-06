@@ -22,6 +22,7 @@ The PM describes a feature (a new idea or a partly built feature) and the decisi
 9. [Repository map](#repository-map)
 10. [Troubleshooting](#troubleshooting)
 11. [Known limitations](#known-limitations)
+12. [License](#license)
 
 ---
 
@@ -241,3 +242,11 @@ docs/           competitive brief
 - Static screenshots can't test real interactions, timing or error states.
 - File-based storage and in-process background jobs suit a single-machine prototype. Swap `src/lib/store.ts` for a database to deploy.
 - Personas are assumption-based ("proto-personas"), not grounded in real customer data yet.
+
+---
+
+## License
+
+The code is released under the [MIT License](LICENSE): you're free to use, modify and share it, with attribution.
+
+Cited third-party sources in `knowledge/` (articles, papers, videos) belong to their authors. The knowledge-base files summarise them in our own words and link to the originals.
