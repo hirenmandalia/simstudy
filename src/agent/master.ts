@@ -90,11 +90,17 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     "Log that you declined, refused or paused a request (out of scope, inappropriate, risky, cap, approval conflict, missing input...). Call once, before explaining it to the PM.",
 };
 
+// Strict mode compiles every strict schema into one grammar, and the design and
+// persona schemas together exceed the API's size limit. Those two run non-strict;
+// every tool input is still validated with zod, and validation errors go back to
+// the agent as an error tool_result so it corrects itself.
+const NON_STRICT: ReadonlySet<ToolName> = new Set(["propose_study_design", "propose_personas"]);
+
 const TOOLS: BetaTool[] = (Object.keys(TOOL_SCHEMAS) as ToolName[]).map((name) => ({
   name,
   description: TOOL_DESCRIPTIONS[name],
   input_schema: toInputSchema(TOOL_SCHEMAS[name]),
-  strict: true,
+  ...(NON_STRICT.has(name) ? {} : { strict: true }),
 }));
 
 // ---------------------------------------------------------------------------
