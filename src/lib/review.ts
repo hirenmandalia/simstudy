@@ -64,7 +64,14 @@ export function approveDesign(project: Project) {
   // Approving the design confirms its research questions as the PM's.
   project.brief.researchQuestions = cur.data.researchQuestions.map((q) => q.text);
   audit(project, "pm", "design_approved", `v${cur.version}`);
-  notice(project, `You approved study design v${cur.version}.`, [{ label: "Review personas", href: `/projects/${project.id}/personas` }]);
+  const hasPersonas = project.personas.versions.length > 0;
+  notice(
+    project,
+    hasPersonas
+      ? `You approved study design v${cur.version}. Check the personas still fit this design.`
+      : `You approved study design v${cur.version}. Next, ask the agent to propose personas.`,
+    [{ label: hasPersonas ? "Review personas" : "Go to Personas", href: `/projects/${project.id}/personas` }],
+  );
   agentEvent(project, `PM approved study design v${cur.version} (its research questions are now confirmed).`);
 }
 

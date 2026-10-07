@@ -17,7 +17,7 @@ const FAMILIARITY: Record<Persona["productFamiliarity"], string> = {
 };
 
 export function PersonaReview() {
-  const { project } = useProject();
+  const { project, sendChat, chatSending, agentBusy } = useProject();
   const cur = currentVersion(project.personas);
   const [editing, setEditing] = useState(false);
   const review = useReviewApi("/personas");
@@ -26,8 +26,21 @@ export function PersonaReview() {
   if (!cur)
     return (
       <Empty title="No personas yet">
-        Once there&apos;s a study design, the agent proposes fictional personas from your target users. Each persona is one simulated
-        participant (up to {MAX_PARTICIPANTS}).
+        <p>
+          The agent proposes fictional personas from your target users, one per simulated participant (up to {MAX_PARTICIPANTS}).
+        </p>
+        {project.design.status === "approved" ? (
+          <Button
+            variant="primary"
+            className="mt-4"
+            disabled={chatSending || agentBusy}
+            onClick={() => void sendChat("I've approved the study design. Please propose the personas.")}
+          >
+            {chatSending || agentBusy ? "Asking the agent…" : "Ask the agent to propose personas"}
+          </Button>
+        ) : (
+          <p className="mt-2">Approve the study design first, then ask the agent for personas here or in the chat.</p>
+        )}
       </Empty>
     );
   if (editing) return <PersonaEditor initial={cur.data} onDone={() => setEditing(false)} />;
