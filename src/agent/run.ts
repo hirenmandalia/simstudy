@@ -23,7 +23,7 @@ import {
   type Persona,
   type StudyDesignInput,
 } from "@/lib/schemas";
-import { approvedVersion, emptyUsage, mergeUsage, type Run, type Screen, type TranscriptLine, type UsageTotals } from "@/lib/types";
+import { approvedVersion, copyUsage, emptyUsage, mergeUsage, type Run, type Screen, type TranscriptLine, type UsageTotals } from "@/lib/types";
 
 type Effort = "low" | "medium" | "high";
 const PERSONA_EFFORT = (process.env.PERSONA_EFFORT as Effort | undefined) ?? "low";
@@ -135,7 +135,7 @@ class Recorder {
         run.transcript.push(...lines);
         run.progress.done = Math.min(run.progress.total, run.progress.done + stepDone);
         if (current) run.progress.current = current;
-        run.usage = { ...this.usage };
+        run.usage = copyUsage(this.usage);
       }),
     );
     return this.flushing;
@@ -201,7 +201,7 @@ async function executeRun(userId: string, projectId: string, runId: string) {
       r.status = "completed";
       r.finishedAt = now();
       r.progress.current = "Writing the report";
-      r.usage = { ...rec.usage };
+      r.usage = copyUsage(rec.usage);
       mergeUsage(p.usage, rec.usage);
       audit(p, "system", "run_completed", runId);
       notice(p, "The simulated study finished. I'm now synthesising the transcript into a report.", [
@@ -334,7 +334,19 @@ function relatedProbes(design: StudyDesignInput, rqIds: string[]): string {
   return probes.length ? probes.join(" | ") : "(none)";
 }
 
-async function personaText(usage: UsageTotals, system: string, messages: BetaMessageParam[]): Promise<string> {
+/**
+ * One persona reply. `cacheConversation` adds a breakpoint at the end of the
+ * conversation, which pays off in multi-turn usability sessions (the next turn
+ * reuses it). Focus-group calls are single-turn with a discussion that changes
+ * every call, so caching it would write a cache entry that's never read; they
+ * rely on the persona-instruction and screen breakpoints only.
+ */
+async function personaText(
+  usage: UsageTotals,
+  system: string,
+  messages: BetaMessageParam[],
+  cacheConversation = true,
+): Promise<string> {
   try {
     const { text } = await completeText(
       {
@@ -342,7 +354,7 @@ async function personaText(usage: UsageTotals, system: string, messages: BetaMes
         max_tokens: 8000,
         output_config: { effort: PERSONA_EFFORT },
         system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-        cache_control: { type: "ephemeral" },
+        ...(cacheConversation ? { cache_control: { type: "ephemeral" as const } } : {}),
         messages,
       },
       { usage },
@@ -408,7 +420,7 @@ async function focusGroupSession(
         text: `Participants in this group: ${roster}. You are ${persona.name}.\n\nDiscussion so far:\n${discussion.join("\n") || "(just starting)"}\n\nModerator (to ${addressed}): ${moderatorLine}\n\nRespond as ${persona.name} would speak in a group: 1-4 sentences, reacting to others where natural. Agree or disagree honestly.`,
       } satisfies BetaTextBlockParam,
     ];
-    const text = await personaText(rec.usage, system, [{ role: "user", content }]);
+    const text = await personaText(rec.usage, system, [{ role: "user", content }], false);
     rec.line({
       sessionId: sid,
       speaker: { kind: "persona", personaId: persona.id, name: persona.name },
