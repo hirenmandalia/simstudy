@@ -16,7 +16,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
     throw e;
   }
   return (
-    <div className="flex h-screen flex-col">
+    <div className="print-flow flex h-screen flex-col">
       <AppHeader user={user}>
         <span className="hidden truncate text-sm text-slate-500 md:block">/ {project.name}</span>
       </AppHeader>

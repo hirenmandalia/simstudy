@@ -35,4 +35,11 @@ body {
   .no-print { display: none !important; }
   body { background: white; }
   .print-full { max-width: none !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
+  /* The workspace scrolls inside a fixed-height shell on screen. For printing, let
+     the whole page flow so every page of the report is included, not just one screenful. */
+  html, body { height: auto !important; overflow: visible !important; }
+  .print-flow { display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  /* Avoid splitting a finding, quote or table row across pages where possible. */
+  article section > div, blockquote, tr { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
 }
