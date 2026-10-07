@@ -220,7 +220,7 @@ function ScreensCard() {
           <Button variant="primary" disabled={!files?.length || !attested || uploading || locked}>
             {uploading ? "Uploading & checking…" : "Upload screens"}
           </Button>
-          <span className="text-xs text-slate-500">PNG, JPEG, WebP or GIF, up to 5 MB each and 20 per study. Each upload is checked automatically for personal data.</span>
+          <span className="text-xs text-slate-500">PNG, JPEG, WebP or GIF, up to 25 MB each and 20 per study. Large images are resized automatically, and each upload is checked for personal data.</span>
         </div>
         {messages.length > 0 && <div className="mt-3"><Callout tone="rose" title="Some files weren't accepted" items={messages} /></div>}
       </form>

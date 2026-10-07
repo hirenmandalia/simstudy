@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/session";
 import { getProject, newId, now, saveUpload, updateProject } from "@/lib/store";
 import { checkScreen } from "@/agent/screenCheck";
 import { agentEvent, assertNotRunning, audit, withdrawDesignApproval } from "@/lib/review";
+import { prepareScreenshot } from "@/lib/images";
 import { emptyUsage, mergeUsage, toClientProject, type Screen } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -13,7 +14,8 @@ const TYPES: Record<string, { ext: string; mediaType: Screen["mediaType"] }> = {
   "image/webp": { ext: "webp", mediaType: "image/webp" },
   "image/gif": { ext: "gif", mediaType: "image/gif" },
 };
-const MAX_BYTES = 5 * 1024 * 1024;
+/** Raw upload limit. Images are resized to fit the model's limits after upload. */
+const MAX_BYTES = 25 * 1024 * 1024;
 const MAX_SCREENS = 20;
 
 /** Upload one or more screenshots. Each is checked for PII / inappropriate content. */
@@ -41,17 +43,24 @@ export async function POST(req: Request, ctx: RouteContext<"/api/projects/[id]/s
           return null;
         }
         if (file.size > MAX_BYTES) {
-          rejected.push(`${file.name}: larger than 5 MB.`);
+          rejected.push(`${file.name}: larger than 25 MB.`);
           return null;
         }
-        const data = Buffer.from(await file.arrayBuffer());
+        let prepared;
+        try {
+          prepared = await prepareScreenshot(Buffer.from(await file.arrayBuffer()), type.mediaType);
+        } catch {
+          rejected.push(`${file.name}: couldn't read this image file.`);
+          return null;
+        }
+        const data = prepared.data;
         const label = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 80) || "Screen";
-        const check = await checkScreen(data, type.mediaType, label, usage);
+        const check = await checkScreen(data, prepared.mediaType, label, usage);
         if (check.inappropriate) {
           rejected.push(`${file.name}: not accepted (${check.inappropriateReason ?? "inappropriate content"}).`);
           return null;
         }
-        return { data, type, label, check };
+        return { data, type: { ext: prepared.ext, mediaType: prepared.mediaType }, label, check };
       }),
     );
 
