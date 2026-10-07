@@ -88,12 +88,17 @@ export interface TranscriptLine {
   at: string;
 }
 
-export interface UsageTotals {
+export interface ModelUsage {
   calls: number;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+}
+
+export interface UsageTotals extends ModelUsage {
+  /** Same counts split by the model that served each call (absent on records made before this was tracked). */
+  byModel?: Record<string, ModelUsage>;
 }
 
 export interface Run {
@@ -208,7 +213,7 @@ export function toClientProject(p: Project): ClientProject {
   return rest;
 }
 
-export function mergeUsage(target: UsageTotals, add: UsageTotals) {
+function addCounts(target: ModelUsage, add: ModelUsage) {
   target.calls += add.calls;
   target.inputTokens += add.inputTokens;
   target.outputTokens += add.outputTokens;
@@ -216,8 +221,24 @@ export function mergeUsage(target: UsageTotals, add: UsageTotals) {
   target.cacheWriteTokens += add.cacheWriteTokens;
 }
 
+export function mergeUsage(target: UsageTotals, add: UsageTotals) {
+  addCounts(target, add);
+  for (const [model, u] of Object.entries(add.byModel ?? {})) {
+    target.byModel ??= {};
+    target.byModel[model] ??= { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    addCounts(target.byModel[model], u);
+  }
+}
+
+/** Deep copy (so a snapshot doesn't share the per-model objects). */
+export function copyUsage(u: UsageTotals): UsageTotals {
+  const out = emptyUsage();
+  mergeUsage(out, u);
+  return out;
+}
+
 export function emptyUsage(): UsageTotals {
-  return { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  return { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, byModel: {} };
 }
 
 export function currentVersion<T>(r: ReviewState<T>): Versioned<T> | null {

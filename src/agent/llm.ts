@@ -64,6 +64,14 @@ function addUsage(totals: UsageTotals | undefined, msg: BetaMessage) {
   totals.outputTokens += msg.usage.output_tokens ?? 0;
   totals.cacheReadTokens += msg.usage.cache_read_input_tokens ?? 0;
   totals.cacheWriteTokens += msg.usage.cache_creation_input_tokens ?? 0;
+  // msg.model is the model that actually served the call (it can differ after a refusal fallback).
+  totals.byModel ??= {};
+  const m = (totals.byModel[msg.model] ??= { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
+  m.calls += 1;
+  m.inputTokens += msg.usage.input_tokens ?? 0;
+  m.outputTokens += msg.usage.output_tokens ?? 0;
+  m.cacheReadTokens += msg.usage.cache_read_input_tokens ?? 0;
+  m.cacheWriteTokens += msg.usage.cache_creation_input_tokens ?? 0;
 }
 
 function withBetas<T extends BaseParams>(params: T, opts: CallOptions) {

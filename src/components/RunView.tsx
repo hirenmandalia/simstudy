@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { runGate } from "@/lib/gates";
 import { approvedVersion, type Run, type TranscriptLine } from "@/lib/types";
+import { estimateCost as estimateUsageCost } from "@/lib/pricing";
 import { useProject } from "./ProjectContext";
 import { Badge, Button, Callout, Card, cx, Empty, SectionTitle, SimLabel } from "./ui";
 
@@ -97,7 +98,8 @@ function RunDetail({ run }: { run: Run }) {
       <SectionTitle
         aside={
           <span className="text-xs text-slate-500">
-            {run.usage.calls} AI calls{cost ? ` · ≈ $${cost.toFixed(2)}` : ""}
+            {run.usage.calls} AI calls
+            {cost ? ` · ≈ $${cost.usd.toFixed(2)}${cost.exact ? "" : " (upper estimate, priced as Opus)"}` : ""}
           </span>
         }
       >
@@ -188,9 +190,6 @@ function TranscriptRow({ line, flag }: { line: TranscriptLine; flag?: { type: st
   );
 }
 
-/** Rough cost at Claude Opus 5.5 list prices (input $4, output $20, cache read $0.20, cache write $5 per MTok). */
-function estimateCost(run: Run): number | null {
-  const u = run.usage;
-  if (!u.calls) return null;
-  return (u.inputTokens * 4 + u.outputTokens * 20 + u.cacheReadTokens * 0.2 + u.cacheWriteTokens * 5) / 1_000_000;
+function estimateCost(run: Run) {
+  return estimateUsageCost(run.usage);
 }
