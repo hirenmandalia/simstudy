@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-/** For activation-code users, who never see the study list. Deleting uses the code up. */
+/** For activation-code users, who never see the study list. Deleting hides the study for good and uses the code up. */
 export function DeleteStudyButton({ projectId, name }: { projectId: string; name: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -11,7 +11,7 @@ export function DeleteStudyButton({ projectId, name }: { projectId: string; name
   async function remove() {
     if (
       !confirm(
-        `Delete "${name}"? Its inputs, transcript and reports will be permanently removed, and your activation code will stop working.`,
+        `Delete "${name}"? You won't be able to open it again, and your activation code will stop working. The pilot's organiser keeps a copy to improve SimStudy.`,
       )
     )
       return;

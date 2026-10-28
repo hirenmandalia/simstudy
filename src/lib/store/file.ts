@@ -11,7 +11,7 @@ import {
  *
  * Isolation: every project lives in its own folder under its owner's folder:
  *   data/users/<userId>/projects/<projectId>/{project.json, uploads/}
- * Deleting a project removes the folder, so its context is gone for good.
+ * Deleting a project only marks it deleted; the folder is kept.
  */
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
@@ -111,9 +111,15 @@ async function readSpend(): Promise<Record<string, number>> {
   }
 }
 
-async function read(userId: string, projectId: string): Promise<Project> {
+async function readIncludingDeleted(userId: string, projectId: string): Promise<Project> {
   const p = await readJson<Project>(path.join(projectDir(userId, projectId), "project.json"));
   if (p.ownerId !== userId || p.id !== projectId) throw new NotFoundError("Not found");
+  return p;
+}
+
+async function read(userId: string, projectId: string): Promise<Project> {
+  const p = await readIncludingDeleted(userId, projectId);
+  if (p.deletedAt) throw new NotFoundError("Not found");
   return p;
 }
 
@@ -156,9 +162,16 @@ export const fileBackend: StoreBackend = {
     return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   },
 
-  async remove(userId, projectId) {
-    await fs.rm(projectDir(userId, projectId), { recursive: true, force: true });
+  async markDeleted(userId, projectId, at) {
+    const dir = projectDir(userId, projectId);
+    await withLock(dir, async () => {
+      const p = await readIncludingDeleted(userId, projectId);
+      p.deletedAt = at;
+      await writeJsonAtomic(path.join(dir, "project.json"), p);
+    });
   },
+
+  readIncludingDeleted,
 
   async saveUpload(userId, projectId, fileName, data) {
     const dir = uploadsDir(userId, projectId);

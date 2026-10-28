@@ -7,6 +7,9 @@ import { assertId, assertToken, NotFoundError, stageLabel, type AccessCode, type
 /**
  * Supabase-backed store for the hosted pilot.
  *
+ * Deleting a study only sets deleted_at: every user-facing read skips it, and
+ * its row and screenshots are kept for the operator.
+ *
  * Projects are one JSONB document per row (the same shape as project.json), so
  * the app code is unchanged. `update` locks the row (SELECT … FOR UPDATE) for
  * the read-modify-write, which serialises writes across serverless instances.
@@ -104,7 +107,8 @@ const CODE_COLUMNS: Record<string, string> = {
 async function read(userId: string, projectId: string): Promise<Project> {
   assertId(userId, "user");
   assertId(projectId, "project");
-  const [row] = await db()<{ data: Project }[]>`select data from projects where id = ${projectId} and owner_id = ${userId}`;
+  const [row] = await db()<{ data: Project }[]>`
+    select data from projects where id = ${projectId} and owner_id = ${userId} and deleted_at is null`;
   if (!row) throw new NotFoundError("Not found");
   return row.data;
 }
@@ -126,7 +130,7 @@ export const supabaseBackend: StoreBackend = {
     assertId(projectId, "project");
     const out = await db().begin(async (tx) => {
       const [row] = await tx<{ data: Project }[]>`
-        select data from projects where id = ${projectId} and owner_id = ${userId} for update`;
+        select data from projects where id = ${projectId} and owner_id = ${userId} and deleted_at is null for update`;
       if (!row) throw new NotFoundError("Not found");
       const p = row.data;
       const result = await mutate(p);
@@ -142,7 +146,8 @@ export const supabaseBackend: StoreBackend = {
   async list(userId) {
     assertId(userId, "user");
     const rows = await db()<{ id: string; name: string; stage: string; created_at: Date; updated_at: Date }[]>`
-      select id, name, stage, created_at, updated_at from projects where owner_id = ${userId} order by updated_at desc`;
+      select id, name, stage, created_at, updated_at from projects
+      where owner_id = ${userId} and deleted_at is null order by updated_at desc`;
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -152,16 +157,21 @@ export const supabaseBackend: StoreBackend = {
     }));
   },
 
-  async remove(userId, projectId) {
-    const prefix = objectPath(userId, projectId);
-    // Shares go with the row (ON DELETE CASCADE).
-    await db()`delete from projects where id = ${projectId} and owner_id = ${userId}`;
-    const { data: objects, error } = await storage().list(prefix, { limit: 1000 });
-    if (error) throw error;
-    if (objects?.length) {
-      const { error: rmError } = await storage().remove(objects.map((o) => `${prefix}/${o.name}`));
-      if (rmError) throw rmError;
-    }
+  async markDeleted(userId, projectId, at) {
+    assertId(userId, "user");
+    assertId(projectId, "project");
+    await db()`
+      update projects
+      set deleted_at = ${at}, data = jsonb_set(data, '{deletedAt}', to_jsonb(${at}::text))
+      where id = ${projectId} and owner_id = ${userId}`;
+  },
+
+  async readIncludingDeleted(userId, projectId) {
+    assertId(userId, "user");
+    assertId(projectId, "project");
+    const [row] = await db()<{ data: Project }[]>`select data from projects where id = ${projectId} and owner_id = ${userId}`;
+    if (!row) throw new NotFoundError("Not found");
+    return row.data;
   },
 
   async saveUpload(userId, projectId, fileName, data) {

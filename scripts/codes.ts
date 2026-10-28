@@ -14,7 +14,7 @@
  */
 import { codeStatus, createAccessCode, DEFAULT_CAP_USD, DEFAULT_VALID_DAYS, getCode, listCodes, updateCode } from "@/lib/codes";
 import { projectSpendUsd } from "@/lib/budget";
-import { getProject, now } from "@/lib/store";
+import { getProjectIncludingDeleted, now } from "@/lib/store";
 import { APP_MONTHLY_CAP_USD, currentMonth, monthSpendUsd } from "@/lib/spend";
 
 const [command, ...rest] = process.argv.slice(2);
@@ -61,13 +61,13 @@ async function main() {
         codes.map(async (c) => {
           let study = "-";
           let spent = 0;
-          if (c.projectId && !c.studyDeletedAt) {
-            const p = await getProject(c.id, c.projectId).catch(() => null);
+          if (c.projectId) {
+            const p = await getProjectIncludingDeleted(c.id, c.projectId).catch(() => null);
             if (p) {
-              study = p.name.slice(0, 30);
+              study = `${p.deletedAt ? "(deleted) " : ""}${p.name}`.slice(0, 30);
               spent = projectSpendUsd(p);
             }
-          } else if (c.studyDeletedAt) study = "(deleted)";
+          }
           return {
             id: c.id,
             label: (c.label ?? "").slice(0, 20),

@@ -406,7 +406,7 @@ function HonestLimits() {
 function YourPilot() {
   const facts = [
     ["One code, one study", "Your code opens a single private study. Come back with the same code to continue."],
-    [`${DEFAULT_VALID_DAYS} days to use it`, "Codes expire after that. Delete your study whenever you like; that uses the code up."],
+    [`${DEFAULT_VALID_DAYS} days to use it`, "Codes expire after that. You can delete your study at any time; that closes it and uses the code up."],
   ];
   return (
     <Section
@@ -444,8 +444,8 @@ function YourPilot() {
             ))}
           </dl>
           <p className="mt-8 border-t border-white/10 pt-5 text-xs leading-relaxed text-slate-400">
-            Don&apos;t upload confidential company material or real people&apos;s data. The pilot&apos;s organiser can see studies in
-            order to support you and fix problems.
+            Don&apos;t upload confidential company material or real people&apos;s data. The pilot&apos;s organiser can see and keeps
+            every study, including deleted ones, to support you and improve SimStudy.
           </p>
         </div>
       </div>
@@ -470,7 +470,7 @@ const FAQ = [
   ],
   [
     "Who can see my study?",
-    "Only you, through your code, and the pilot's organiser. A report is shared further only if you approve it and create a read-only link.",
+    "Only you, through your code, and the pilot's organiser, who keeps studies (including deleted ones) to improve SimStudy. A report is shared further only if you approve it and create a read-only link.",
   ],
   [
     "What happens when the AI budget runs out?",

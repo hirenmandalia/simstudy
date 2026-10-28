@@ -79,8 +79,10 @@ export interface StoreBackend {
   /** Read-modify-write, serialised per project. Nothing is written if `mutate` throws. */
   update<T>(userId: string, projectId: string, mutate: (p: Project) => Promise<T>): Promise<{ project: Project; result: T }>;
   list(userId: string): Promise<ProjectSummary[]>;
-  /** Removes the project and its uploads. */
-  remove(userId: string, projectId: string): Promise<void>;
+  /** Hide the project from users for good. Its data and uploads are kept. */
+  markDeleted(userId: string, projectId: string, at: string): Promise<void>;
+  /** Operator-only read that also returns deleted projects. */
+  readIncludingDeleted(userId: string, projectId: string): Promise<Project>;
 
   saveUpload(userId: string, projectId: string, fileName: string, data: Buffer): Promise<void>;
   readUpload(userId: string, projectId: string, fileName: string): Promise<Buffer>;

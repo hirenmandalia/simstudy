@@ -30,7 +30,7 @@ export function ProjectList({ initial, pilot = false }: { initial: ProjectSummar
   }
 
   async function remove(id: string, projectName: string) {
-    if (!confirm(`Delete "${projectName}"? Its inputs, transcript and reports will be permanently removed.`)) return;
+    if (!confirm(`Delete "${projectName}"? It will be removed from your studies. A copy is kept for improving SimStudy.`)) return;
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (res.ok) setProjects((p) => p.filter((x) => x.id !== id));
   }
@@ -103,7 +103,7 @@ function PilotNotice() {
   const points = [
     ["The participants are AI personas, not real people.", "Treat the report as an early signal to test with real users, not as evidence on its own."],
     ["Use public or demo-safe material only.", "No confidential company documents, unreleased financials or real customers' details, in chat or in screenshots. Uploads are checked for personal data."],
-    ["The pilot's organiser can see your study.", "That's so they can support you and fix problems. Nobody else can, unless you approve the report and share a link."],
+    ["The pilot's organiser can see your study and keeps it.", "That's to support you, fix problems and improve SimStudy, and it includes studies you delete. Nobody else can see it unless you approve the report and share a link."],
     ["Your study has a fixed AI budget.", "The header shows how much is used. When it runs out the study stops doing new AI work; what's already done stays."],
   ];
   return (

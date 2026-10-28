@@ -6,8 +6,13 @@
  *   npm run store:check:supabase        (Supabase, credentials from .env.development.local)
  */
 import assert from "node:assert/strict";
+import { promises as fs } from "fs";
+import path from "path";
+import postgres from "postgres";
+import { createClient } from "@supabase/supabase-js";
+import { postgresUrl } from "@/lib/store/supabase";
 import {
-  backend, createProject, createShare, deleteProject, deleteUpload, getProject, listProjects,
+  backend, createProject, createShare, deleteProject, deleteUpload, getProject, getProjectIncludingDeleted, listProjects,
   NotFoundError, readUpload, removeShare, resolveShare, saveUpload, updateProject,
 } from "@/lib/store";
 import { activeCodeFor, checkCodeEntry, claimCodeStudy, codeStatus, createAccessCode, normalizeCode, updateCode } from "@/lib/codes";
@@ -89,9 +94,13 @@ async function main() {
     await deleteProject(USER, id);
   }
 
-  await step("delete removes project and screens", async () => {
+  await step("delete hides the project from users but keeps it and its screens", async () => {
     await rejectsNotFound(getProject(USER, id), "deleted project");
-    await assert.rejects(readUpload(USER, id, "S2-check.png"));
+    assert.ok(!(await listProjects(USER)).some((s) => s.id === id), "not listed");
+    await rejectsNotFound(updateProject(USER, id, () => {}), "deleted project can't be changed");
+    const kept = await getProjectIncludingDeleted(USER, id);
+    assert.ok(kept.deletedAt, "kept with deletedAt");
+    assert.ok((await readUpload(USER, id, "S2-check.png")).length > 0, "screen kept");
   });
 
   await step("activation codes: format, entry, one study, disable, expiry", async () => {
@@ -134,12 +143,35 @@ async function main() {
     await Promise.all([0.5, 0.25, 0.125].map((usd) => backend().addSpend(month, usd)));
     assert.equal(await backend().getSpend(month), 0.875);
     assert.equal(await backend().getSpend(`${month}-none`), 0);
-    // A "test-…" month never matches a real one ("2026-10"); on Supabase, delete these rows with
-    // `delete from app_spend where month like 'test-%'` if they bother you.
   });
 
+  await purgeCheckData();
   console.log("all store checks passed");
   process.exit(0);
+}
+
+/**
+ * Studies are never really deleted, so remove this script's own test data
+ * (owner "ustorecheck…", "test-…" spend months) to keep it out of real data.
+ */
+async function purgeCheckData() {
+  if (process.env.STORE_BACKEND !== "supabase") {
+    const dir = process.env.DATA_DIR ?? "data";
+    for (const u of [USER, OTHER]) await fs.rm(path.join(dir, "users", u), { recursive: true, force: true });
+    return;
+  }
+  const sql = postgres(postgresUrl(), { ssl: "require", prepare: false, max: 1 });
+  const rows = await sql<{ id: string; owner_id: string }[]>`delete from projects where owner_id like 'ustorecheck%' returning id, owner_id`;
+  const screens = createClient(process.env.SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)!, {
+    auth: { persistSession: false },
+  }).storage.from("screens");
+  for (const r of rows) {
+    const prefix = `${r.owner_id}/${r.id}`;
+    const { data } = await screens.list(prefix);
+    if (data?.length) await screens.remove(data.map((o) => `${prefix}/${o.name}`));
+  }
+  await sql`delete from app_spend where month like 'test-%'`;
+  await sql.end();
 }
 
 main().catch((e) => {

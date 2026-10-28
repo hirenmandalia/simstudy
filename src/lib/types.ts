@@ -185,6 +185,11 @@ export interface Project {
   report: ReportReview;
   audit: AuditEvent[];
   usage: UsageTotals;
+  /**
+   * Set when the PM deletes the study. Deleted studies are hidden from every
+   * user-facing read but kept, with their screens, for the operator to learn from.
+   */
+  deletedAt?: string | null;
 }
 
 /** Project as sent to the browser. */

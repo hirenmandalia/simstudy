@@ -100,10 +100,16 @@ export async function listProjects(userId: string) {
   return backend().list(userId);
 }
 
+/** Hide a study from its user for good (share link included). Its data is kept for the operator. */
 export async function deleteProject(userId: string, projectId: string) {
   const p = await getProject(userId, projectId);
   if (p.report.shareToken) await removeShare(p.report.shareToken);
-  await backend().remove(userId, projectId);
+  await backend().markDeleted(userId, projectId, now());
+}
+
+/** Operator tools only (scripts): never use in a route or page. */
+export async function getProjectIncludingDeleted(userId: string, projectId: string): Promise<Project> {
+  return backend().readIncludingDeleted(userId, projectId);
 }
 
 // --- uploads -------------------------------------------------------------------
