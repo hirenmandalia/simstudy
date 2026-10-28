@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { signIn, googleConfigured, devLoginEnabled } from "@/auth";
 import { currentUser } from "@/lib/session";
 import { APP_NAME } from "@/lib/brand";
-import { DEFAULT_CAP_USD, DEFAULT_VALID_DAYS } from "@/lib/codes";
+import { DEFAULT_VALID_DAYS } from "@/lib/codes";
 import { enterCode } from "./actions";
 
 const CODE_ERRORS: Record<string, string> = {
@@ -406,7 +406,6 @@ function HonestLimits() {
 function YourPilot() {
   const facts = [
     ["One code, one study", "Your code opens a single private study. Come back with the same code to continue."],
-    [`$${DEFAULT_CAP_USD} of AI included`, "AI costs are covered by the pilot. The study shows how much of its budget it has used."],
     [`${DEFAULT_VALID_DAYS} days to use it`, "Codes expire after that. Delete your study whenever you like; that uses the code up."],
   ];
   return (
