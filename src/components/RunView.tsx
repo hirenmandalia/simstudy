@@ -8,13 +8,6 @@ import { estimateCost as estimateUsageCost } from "@/lib/pricing";
 import { useProject } from "./ProjectContext";
 import { Badge, Button, Callout, Card, cx, Empty, SectionTitle, SimLabel } from "./ui";
 
-const OUTCOME: Record<string, { label: string; tone: "green" | "amber" | "rose" }> = {
-  completed: { label: "Completed", tone: "green" },
-  completed_with_difficulty: { label: "Completed with difficulty", tone: "amber" },
-  failed: { label: "Failed", tone: "rose" },
-  gave_up: { label: "Gave up", tone: "rose" },
-};
-
 export function RunView() {
   const { project, api } = useProject();
   const [starting, setStarting] = useState(false);
@@ -36,7 +29,7 @@ export function RunView() {
   const checklist = [
     { ok: !!design, label: design ? `Study design v${design.version} approved` : "Study design approved" },
     { ok: !!personas && project.personas.approvedForDesignVersion === design?.version, label: personas ? `Personas v${personas.version} approved for this design` : "Personas approved" },
-    { ok: design?.data.method !== "usability_test" || project.screens.length > 0, label: `Screens available (${project.screens.length})` },
+    { ok: true, label: `Screens available (${project.screens.length}, optional)` },
     { ok: !project.screens.some((s) => s.piiConcerns.length && !s.piiAcknowledged), label: "Screen privacy checks reviewed" },
   ];
 
@@ -68,7 +61,7 @@ export function RunView() {
           </Button>
           {design && personas && (
             <span className="text-xs text-slate-500">
-              {design.data.method === "usability_test" ? "Usability test" : "Focus group"} · {personas.data.personas.length} AI personas · {design.data.tasks.length} task(s) ·{" "}
+              {(design.data.method as string) === "usability_test" ? "Usability test (legacy)" : "Focus group"} · {personas.data.personas.length} AI personas ·{" "}
               {design.data.interviewQuestions.length} question(s)
             </span>
           )}
@@ -161,26 +154,9 @@ function TranscriptRow({ line, flag }: { line: TranscriptLine; flag?: { type: st
         <span className="font-mono text-slate-400">{line.id}</span>
         <span className={cx("font-semibold", isMod ? "text-slate-500" : "text-accent")}>{isMod ? "Moderator" : line.speaker.kind === "persona" ? line.speaker.name : ""}</span>
         {!isMod && <Badge tone="amber">simulated</Badge>}
-        {line.taskId && <Badge>{line.taskId}</Badge>}
         {line.questionId && <Badge>{line.questionId}</Badge>}
-        {line.attempt && <Badge tone={OUTCOME[line.attempt.outcome].tone}>{OUTCOME[line.attempt.outcome].label}</Badge>}
-        {line.attempt && <Badge tone="sky">Ease {line.attempt.easeRating}/7</Badge>}
       </div>
       <p className={cx("whitespace-pre-wrap leading-relaxed", isMod ? "text-slate-600" : "text-slate-800")}>{line.text}</p>
-      {line.attempt && (
-        <details className="mt-2 text-xs text-slate-600">
-          <summary className="cursor-pointer text-slate-500">Steps, confusion and unmet expectations</summary>
-          <ol className="mt-2 space-y-1 pl-4">
-            {line.attempt.stepsTaken.map((s, i) => (
-              <li key={i}>
-                <span className="font-mono text-slate-400">{s.screen}</span> {s.action} — <span className="italic">{s.thought}</span>
-              </li>
-            ))}
-          </ol>
-          {line.attempt.confusionPoints.length > 0 && <p className="mt-2"><span className="font-medium">Confusion:</span> {line.attempt.confusionPoints.join("; ")}</p>}
-          {line.attempt.expectationsNotMet.length > 0 && <p className="mt-1"><span className="font-medium">Expected but missing:</span> {line.attempt.expectationsNotMet.join("; ")}</p>}
-        </details>
-      )}
       {flag && (
         <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-900">
           ⚑ Consistency flag ({flag.type.replace(/_/g, " ")}): {flag.note}

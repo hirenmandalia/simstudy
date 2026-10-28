@@ -1,6 +1,6 @@
 # SimStudy: simulated user research for mobile product teams
 
-A capstone prototype of an AI agent that runs a **simulated** usability test or focus group for a product manager (PM), then writes a decision-ready report.
+A capstone prototype of an AI agent that runs a **simulated** focus group for a product manager (PM), then writes a decision-ready report.
 
 The PM describes a feature (a new idea or a partly built feature) and the decision they face: build it, or launch it. They approve a study plan and a set of fictional personas. AI "participants" then react to demo-safe screenshots of the app, and the agent turns their sessions into a report with findings, recommendations and quotes checked against the transcript.
 
@@ -34,7 +34,7 @@ The PM describes a feature (a new idea or a partly built feature) and the decisi
 | 2. **Upload screens:** demo-safe screenshots plus a short note on how screens connect | **Brief & screens** tab | PM confirms the screens are public and redacted; each upload is checked for personal data |
 | 3. **Study design:** method, tasks or discussion guide, participant count (max 12) | **Study design** approval screen | PM edits, approves or rejects |
 | 4. **Personas:** fictional participants matching the target users | **Personas** approval screen (only after the design is approved) | PM edits, approves or rejects |
-| 5. **Run:** AI personas complete the usability tasks or hold a focus group | **Run** screen button, or asking the agent explicitly | Only the approved plan can run |
+| 5. **Run:** AI personas hold a focus group | **Run** screen button, or asking the agent explicitly | Only the approved plan can run |
 | 6. **Report:** findings, recommendations, quotes verified against the transcript, limitations | **Report** approval screen | PM edits, requests changes, approves or rejects. Download and share links unlock only after approval |
 
 ---
@@ -117,7 +117,7 @@ To try the full interview, create a new study and answer the agent in the chat p
 Everything runs on Claude Opus 5.5 by default.
 - A **chat turn** costs cents.
 - A **full simulated study** (5 personas, 3 tasks, report) makes roughly 60–100 calls. The **Run** screen shows an estimated cost for each run.
-- **Focus groups** make more calls than usability tests.
+- **Focus groups** make many calls: every persona answers every question.
 - Switching personas to Sonnet 5.5 (`PERSONA_MODEL=claude-sonnet-5-5`) lowers cost.
 
 ---
@@ -141,14 +141,12 @@ Master agent (Claude, tool loop)
    │ code gates (lib/gates)  │ research knowledge base (knowledge/*.md)
    ▼
 Run engine (src/agent/run.ts)
-   ├─ Usability test: one session per persona
-   │    tasks → structured think-aloud attempt → neutral moderator probe → debrief
    └─ Focus group: opening round → key questions + probes + cross-talk
         → "most important thing said" round → moderator summary confirmed by the group
    then: consistency check per persona (flags out-of-character or invented UI)
    ▼
 Synthesis (src/agent/synthesis.ts)
-   structured report → every quote verified against the transcript → task metrics computed in code
+   structured report → every quote verified against the transcript
    ▼
 PM reviews / edits / approves → download (Markdown) or read-only share link
 ```

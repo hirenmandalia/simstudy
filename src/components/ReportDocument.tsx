@@ -75,7 +75,7 @@ export function ReportDocument({
           </div>
           <div>
             <dt className="inline text-slate-500">Method: </dt>
-            <dd className="inline">{report.scope.method === "usability_test" ? "Simulated usability test" : "Simulated focus group"}</dd>
+            <dd className="inline">{(report.scope.method as string) === "usability_test" ? "Simulated usability test (legacy)" : "Simulated focus group"}</dd>
           </div>
           <div>
             <dt className="inline text-slate-500">Participants: </dt>
@@ -123,41 +123,6 @@ export function ReportDocument({
           })}
         </div>
       </section>
-
-      {report.taskMetrics.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold">Task results (simulated)</h2>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500">
-                <tr className="border-b border-slate-200">
-                  <th className="py-2 pr-3">Task</th>
-                  <th className="px-2">Completed</th>
-                  <th className="px-2">With difficulty</th>
-                  <th className="px-2">Failed</th>
-                  <th className="px-2">Gave up</th>
-                  <th className="px-2">Avg. ease (1–7)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.taskMetrics.map((t) => (
-                  <tr key={t.taskId} className="border-b border-slate-100">
-                    <td className="py-2 pr-3">
-                      <span className="font-mono text-xs text-slate-400">{t.taskId}</span> {t.title}
-                    </td>
-                    <td className="px-2">{t.completed}</td>
-                    <td className="px-2">{t.completedWithDifficulty}</td>
-                    <td className="px-2">{t.failed}</td>
-                    <td className="px-2">{t.gaveUp}</td>
-                    <td className="px-2">{t.averageEase ?? "–"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">Small simulated samples show what problems exist and why, not how often real users would hit them.</p>
-        </section>
-      )}
 
       <section>
         <h2 className="text-lg font-semibold">Findings</h2>

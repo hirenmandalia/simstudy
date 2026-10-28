@@ -20,7 +20,7 @@ export default async function Home() {
             {[
               ["1", "Interview", "The agent asks about your feature, decision and users"],
               ["2", "Approve the plan", "Review the study design and personas"],
-              ["3", "Run", "AI personas test your screens or discuss your concept"],
+              ["3", "Run", "AI personas discuss your concept and screens in a focus group"],
               ["4", "Decide", "Review, edit and approve the report, then share it"],
             ].map(([n, t, d]) => (
               <li key={n} className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3">

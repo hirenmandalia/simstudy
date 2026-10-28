@@ -11,7 +11,8 @@ import { z } from "zod";
 
 export const MAX_PARTICIPANTS = 12;
 
-export const StudyMethod = z.enum(["usability_test", "focus_group"]);
+/** SimStudy runs simulated focus groups only (usability tests were removed; see git history). */
+export const StudyMethod = z.enum(["focus_group"]);
 export type StudyMethod = z.infer<typeof StudyMethod>;
 
 export const Decision = z.enum(["build", "launch"]);
@@ -66,18 +67,6 @@ export const ResearchQuestion = z.object({
 });
 export type ResearchQuestion = z.infer<typeof ResearchQuestion>;
 
-export const UsabilityTask = z.object({
-  id: z.string().describe('Stable id like "TASK1".'),
-  title: z.string(),
-  scenario: z
-    .string()
-    .describe("Realistic, goal-based scenario read to the participant. Must not reveal the UI path or use on-screen labels."),
-  successCriteria: z.string().describe("What counts as success, observable from the screens."),
-  startScreen: z.string().nullable().describe('Screen code where the task starts, e.g. "S1".'),
-  relatedQuestionIds: z.array(z.string()),
-});
-export type UsabilityTask = z.infer<typeof UsabilityTask>;
-
 export const InterviewQuestion = z.object({
   id: z.string().describe('Stable id like "Q1".'),
   question: z.string().describe("Open, neutral, non-leading question."),
@@ -104,10 +93,7 @@ export const StudyDesignInput = z.object({
   sessionOutline: z.array(SessionSection),
   moderatorIntroduction: z.string().describe("What the moderator says to open the session."),
   warmUpQuestions: z.array(z.string()),
-  tasks: z.array(UsabilityTask).describe("Usability tasks. Empty for a focus group."),
-  interviewQuestions: z
-    .array(InterviewQuestion)
-    .describe("Debrief questions (usability test) or the discussion guide (focus group)."),
+  interviewQuestions: z.array(InterviewQuestion).describe("The focus-group discussion guide: key questions, at most 8."),
   closingRemarks: z.string(),
   targetUserAssumptions: z.array(z.string()),
   assumptions: z.array(z.string()).describe("Assumptions you made that the PM should check."),
@@ -154,33 +140,12 @@ export type PersonaSetInput = z.infer<typeof PersonaSetInput>;
 // Simulated session outputs
 // ---------------------------------------------------------------------------
 
-export const TaskOutcome = z.enum(["completed", "completed_with_difficulty", "failed", "gave_up"]);
-export type TaskOutcome = z.infer<typeof TaskOutcome>;
-
-export const TaskAttempt = z.object({
-  thinkAloud: z
-    .string()
-    .describe("First-person think-aloud narration as you work through the task on the screens, in your own voice."),
-  stepsTaken: z.array(
-    z.object({
-      screen: z.string().describe('Screen code you were looking at, e.g. "S2".'),
-      action: z.string().describe("What you tried to do (tap, scroll, read...)."),
-      thought: z.string().describe("What you were thinking at that moment."),
-    }),
-  ),
-  outcome: TaskOutcome,
-  easeRating: z.number().int().describe("How easy was this task? 1 = very difficult, 7 = very easy."),
-  confusionPoints: z.array(z.string()),
-  expectationsNotMet: z.array(z.string()).describe("Things you expected to see or happen that the screens did not show."),
-});
-export type TaskAttempt = z.infer<typeof TaskAttempt>;
-
 export const ModeratorProbe = z.object({
   probe: z.string().describe("One open, neutral follow-up question (max ~25 words)."),
   rationale: z.string().describe("Why this probe, in one sentence (not shown to participants)."),
   addressedTo: z
     .array(z.string())
-    .describe("Persona ids the probe is directed to. Usability test: the single participant. Focus group: 1-3 participants."),
+    .describe("Persona ids the probe is directed to (1-3 participants)."),
 });
 export type ModeratorProbe = z.infer<typeof ModeratorProbe>;
 

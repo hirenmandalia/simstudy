@@ -70,7 +70,7 @@ export function DesignReview() {
         <div className="grid gap-5 md:grid-cols-2">
           <Card>
             <SectionTitle>Method</SectionTitle>
-            <p className="font-medium">{d.method === "usability_test" ? "Simulated usability test" : "Simulated focus group"}</p>
+            <p className="font-medium">{d.method === "focus_group" ? "Simulated focus group" : "Usability test (no longer supported: ask the agent for a focus-group design)"}</p>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">{d.methodRationale}</p>
           </Card>
           <Card>
@@ -107,30 +107,8 @@ export function DesignReview() {
           <p className="mt-1 text-sm text-slate-600">{d.closingRemarks}</p>
         </Card>
 
-        {d.tasks.length > 0 && (
-          <Card>
-            <SectionTitle>Usability tasks</SectionTitle>
-            <ol className="space-y-4">
-              {d.tasks.map((t) => (
-                <li key={t.id} className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-slate-400">{t.id}</span>
-                    <span className="font-medium">{t.title}</span>
-                    {t.startScreen && <Badge tone="sky">starts on {t.startScreen}</Badge>}
-                    {t.relatedQuestionIds.map((id) => (
-                      <Badge key={id}>{id}</Badge>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-sm text-slate-700">“{t.scenario}”</p>
-                  <p className="mt-1 text-xs text-slate-500">Success: {t.successCriteria}</p>
-                </li>
-              ))}
-            </ol>
-          </Card>
-        )}
-
         <Card>
-          <SectionTitle>{d.method === "usability_test" ? "Debrief questions" : "Discussion guide"}</SectionTitle>
+          <SectionTitle>Discussion guide</SectionTitle>
           <ol className="space-y-3">
             {d.interviewQuestions.map((q) => (
               <li key={q.id} className="text-sm">
@@ -236,10 +214,7 @@ function DesignEditor({ initial, onDone }: { initial: StudyDesignInput; onDone: 
             </select>
           </Field>
           <Field label="Method">
-            <select className={inputClass} value={d.method} onChange={(e) => set("method", e.target.value as StudyDesignInput["method"])}>
-              <option value="usability_test">Usability test</option>
-              <option value="focus_group">Focus group</option>
-            </select>
+            <input className={inputClass} value="Focus group" readOnly aria-readonly="true" />
           </Field>
           <Field label={`Participants (1–${MAX_PARTICIPANTS})`} hint="Must match the number of personas.">
             <input type="number" min={1} max={MAX_PARTICIPANTS} className={inputClass} value={d.participantCount} onChange={(e) => set("participantCount", Number(e.target.value))} />
@@ -294,61 +269,12 @@ function DesignEditor({ initial, onDone }: { initial: StudyDesignInput; onDone: 
       <Card>
         <SectionTitle
           aside={
-            <Button
-              size="sm"
-              onClick={() => set("tasks", [...d.tasks, { id: `TASK${d.tasks.length + 1}`, title: "", scenario: "", successCriteria: "", startScreen: null, relatedQuestionIds: [] }])}
-            >
-              Add task
-            </Button>
-          }
-        >
-          Usability tasks
-        </SectionTitle>
-        <div className="space-y-4">
-          {d.tasks.length === 0 && <p className="text-sm text-slate-400">No tasks (fine for a focus group).</p>}
-          {d.tasks.map((t, i) => {
-            const upd = (patch: Partial<typeof t>) => set("tasks", d.tasks.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-            return (
-              <div key={i} className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
-                <Field label={`${t.id} title`}>
-                  <input className={inputClass} value={t.title} onChange={(e) => upd({ title: e.target.value })} />
-                </Field>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Start screen">
-                    <input className={inputClass} value={t.startScreen ?? ""} placeholder="S1" onChange={(e) => upd({ startScreen: e.target.value.trim() || null })} />
-                  </Field>
-                  <Field label="Research questions">{idsInput(t.relatedQuestionIds, (v) => upd({ relatedQuestionIds: v }))}</Field>
-                </div>
-                <div className="sm:col-span-2">
-                  <Field label="Scenario (goal-based; don't name UI labels)">
-                    <textarea className={inputClass} rows={3} value={t.scenario} onChange={(e) => upd({ scenario: e.target.value })} />
-                  </Field>
-                </div>
-                <div className="sm:col-span-2">
-                  <Field label="Success criteria">
-                    <input className={inputClass} value={t.successCriteria} onChange={(e) => upd({ successCriteria: e.target.value })} />
-                  </Field>
-                </div>
-                <div className="sm:col-span-2 flex justify-end">
-                  <Button size="sm" variant="ghost" onClick={() => set("tasks", d.tasks.filter((_, j) => j !== i))}>
-                    Remove task
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle
-          aside={
             <Button size="sm" onClick={() => set("interviewQuestions", [...d.interviewQuestions, { id: `Q${d.interviewQuestions.length + 1}`, question: "", probes: [], relatedQuestionIds: [] }])}>
               Add question
             </Button>
           }
         >
-          {d.method === "usability_test" ? "Debrief questions" : "Discussion guide"}
+          Discussion guide
         </SectionTitle>
         <div className="space-y-4">
           {d.interviewQuestions.map((q, i) => {

@@ -28,28 +28,17 @@ export function checkDesign(design: StudyDesignInput, project: Pick<Project, "sc
       `${suggested.length} research question(s) were suggested by the agent. Approving the design confirms them as your research questions.`,
     );
 
-  if (design.method === "usability_test") {
-    if (!design.tasks.length) blocking.push("A usability test needs at least one task.");
-    if (!project.screens.length) blocking.push("A usability test needs uploaded screens. Add screenshots on the Brief & screens tab.");
-    const codes = new Set(project.screens.map((s) => s.code));
-    for (const t of design.tasks) {
-      if (t.startScreen && !codes.has(t.startScreen))
-        warnings.push(`${t.id} starts on ${t.startScreen}, which isn't an uploaded screen.`);
-    }
-    if (design.tasks.length > 6) warnings.push("More than 6 tasks is a lot for one session; consider trimming.");
-  } else {
-    if (!design.interviewQuestions.length) blocking.push("A focus group needs a discussion guide (at least one question).");
-    if (!project.screens.length)
-      warnings.push("No screens uploaded: participants will react to the written concept only, which gives weaker evidence.");
-    if (design.interviewQuestions.length > 8) warnings.push("More than 8 discussion questions is a lot for one session.");
-  }
+  // SimStudy runs focus groups only; designs saved before usability tests were removed can't run.
+  if ((design.method as string) !== "focus_group")
+    blocking.push("This design uses a usability test, which SimStudy no longer runs. Ask the agent for a focus-group design.");
+  if (!design.interviewQuestions.length) blocking.push("A focus group needs a discussion guide (at least one question).");
+  if (!project.screens.length)
+    warnings.push("No screens uploaded: participants will react to the written concept only, which gives weaker evidence.");
+  if (design.interviewQuestions.length > 8) warnings.push("More than 8 discussion questions is a lot for one session.");
 
-  const covered = new Set([
-    ...design.tasks.flatMap((t) => t.relatedQuestionIds),
-    ...design.interviewQuestions.flatMap((q) => q.relatedQuestionIds),
-  ]);
+  const covered = new Set(design.interviewQuestions.flatMap((q) => q.relatedQuestionIds));
   for (const rq of design.researchQuestions) {
-    if (!covered.has(rq.id)) warnings.push(`${rq.id} isn't covered by any task or question.`);
+    if (!covered.has(rq.id)) warnings.push(`${rq.id} isn't covered by any discussion question.`);
   }
   if (design.missingInputs.length) warnings.push(`Missing inputs noted: ${design.missingInputs.join("; ")}`);
 

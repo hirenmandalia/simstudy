@@ -10,7 +10,6 @@ import {
   mergeUsage,
   type Report,
   type Run,
-  type TaskMetric,
   type TranscriptLine,
   type VerifiedQuote,
 } from "@/lib/types";
@@ -55,7 +54,7 @@ export async function generateReport(
     const run = project.runs.find((r) => r.id === runId);
     if (!run) throw new Error("Run not found");
     const previous = instructions ? currentVersion(project.report) : null;
-    const guidance = await loadKnowledgeBase(["02-", "03-", "06-", "07-"]);
+    const guidance = await loadKnowledgeBase(["03-", "06-", "07-"]);
 
     const { data: draft } = await completeStructured(
       {
@@ -122,8 +121,7 @@ Decision the PM is making (not yours): ${d.decisionToSupport}
 Method: ${d.method}; participants: ${run.personas.personas.length}
 Research questions:
 ${d.researchQuestions.map((q) => `- ${q.id}: ${q.text}`).join("\n")}
-${d.tasks.length ? `Tasks:\n${d.tasks.map((t) => `- ${t.id} "${t.title}": ${t.scenario} | success: ${t.successCriteria} | RQs: ${t.relatedQuestionIds.join(", ")}`).join("\n")}` : ""}
-Questions:
+Discussion guide:
 ${d.interviewQuestions.map((q) => `- ${q.id}: ${q.question} | RQs: ${q.relatedQuestionIds.join(", ")}`).join("\n")}
 Screens: ${run.screens.map((s) => `${s.code} "${s.label}" (${s.description || "no description"})`).join("; ") || "none"}
 </study>`);
@@ -133,36 +131,12 @@ Screens: ${run.screens.map((s) => `${s.code} "${s.label}" (${s.description || "n
   parts.push(`<transcript>\n${run.transcript.map(renderLine).join("\n")}\n</transcript>`);
   const flags = Object.entries(run.consistency).flatMap(([pid, c]) => c.flags.map((f) => `- ${f.lineId} (${pid}) ${f.type}: ${f.note}`));
   parts.push(`<consistency_flags>\n${flags.join("\n") || "(none)"}\n</consistency_flags>`);
-  parts.push(`<task_metrics computed_by_app="true">\n${JSON.stringify(computeTaskMetrics(run))}\n</task_metrics>`);
   return parts.join("\n\n");
 }
 
 function renderLine(l: TranscriptLine): string {
   const who = l.speaker.kind === "moderator" ? "MODERATOR" : `${l.speaker.name} [${l.speaker.personaId}]`;
-  const tag = [l.taskId, l.questionId].filter(Boolean).join(",");
-  let s = `${l.id} | session ${l.sessionId} | ${who}${tag ? ` | ${tag}` : ""} | ${l.kind}: ${l.text}`;
-  if (l.attempt) {
-    s += `\n      (structured, not quotable) outcome=${l.attempt.outcome}; ease=${l.attempt.easeRating}/7; steps=${l.attempt.stepsTaken.map((x) => `${x.screen}: ${x.action}`).join(" > ")}; confusion=${l.attempt.confusionPoints.join("; ") || "none"}; expectations not met=${l.attempt.expectationsNotMet.join("; ") || "none"}`;
-  }
-  return s;
-}
-
-export function computeTaskMetrics(run: Run): TaskMetric[] {
-  return run.design.tasks.map((t) => {
-    const attempts = run.transcript.filter((l) => l.kind === "task_attempt" && l.taskId === t.id && l.attempt);
-    const count = (o: string) => attempts.filter((a) => a.attempt!.outcome === o).length;
-    const eases = attempts.map((a) => a.attempt!.easeRating);
-    return {
-      taskId: t.id,
-      title: t.title,
-      attempts: attempts.length,
-      completed: count("completed"),
-      completedWithDifficulty: count("completed_with_difficulty"),
-      failed: count("failed"),
-      gaveUp: count("gave_up"),
-      averageEase: eases.length ? Math.round((eases.reduce((a, b) => a + b, 0) / eases.length) * 10) / 10 : null,
-    };
-  });
+  return `${l.id} | ${who}${l.questionId ? ` | ${l.questionId}` : ""} | ${l.kind}: ${l.text}`;
 }
 
 // --- quote verification ---------------------------------------------------------
@@ -179,10 +153,7 @@ function normalize(s: string): string {
 }
 
 function searchable(l: TranscriptLine): string {
-  const extra = l.attempt
-    ? [...l.attempt.stepsTaken.map((s) => s.thought), ...l.attempt.confusionPoints, ...l.attempt.expectationsNotMet].join(" ")
-    : "";
-  return normalize(`${l.text} ${extra}`);
+  return normalize(l.text);
 }
 
 /** A quote matches if each "..."-separated fragment appears in order in the line. */
@@ -244,7 +215,6 @@ function buildReport(run: Run, draft: ReportDraft, pmNotes: string): Report {
       personaVersion: run.personaVersion,
     },
     researchQuestions: d.researchQuestions.map((q) => ({ id: q.id, text: q.text })),
-    taskMetrics: computeTaskMetrics(run),
     draft: checked,
     quoteCheck: { total, verified },
     pmNotes,

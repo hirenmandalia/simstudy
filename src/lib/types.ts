@@ -8,7 +8,6 @@ import type {
   Quote,
   ReportDraft,
   StudyDesignInput,
-  TaskAttempt,
 } from "./schemas";
 
 export type ReviewStatus = "pending_review" | "approved" | "rejected";
@@ -69,22 +68,18 @@ export type Speaker = { kind: "moderator" } | { kind: "persona"; personaId: stri
 
 export interface TranscriptLine {
   id: string; // "L001"
-  sessionId: string; // persona id for usability tests, "group" for focus groups
+  sessionId: string; // "group" for focus groups
   speaker: Speaker;
   kind:
     | "intro"
     | "warm_up"
-    | "task_prompt"
-    | "task_attempt"
     | "probe"
     | "answer"
     | "question"
     | "discussion"
     | "closing";
-  taskId: string | null;
   questionId: string | null;
   text: string;
-  attempt: TaskAttempt | null;
   at: string;
 }
 
@@ -124,17 +119,6 @@ export interface VerifiedQuote extends Quote {
   verified: boolean;
 }
 
-export interface TaskMetric {
-  taskId: string;
-  title: string;
-  attempts: number;
-  completed: number;
-  completedWithDifficulty: number;
-  failed: number;
-  gaveUp: number;
-  averageEase: number | null;
-}
-
 /** ReportDraft with quotes checked against the transcript plus computed metadata. */
 export interface Report {
   runId: string;
@@ -151,7 +135,6 @@ export interface Report {
     personaVersion: number;
   };
   researchQuestions: { id: string; text: string }[];
-  taskMetrics: TaskMetric[];
   draft: ReportDraft;
   quoteCheck: { total: number; verified: number };
   pmNotes: string;

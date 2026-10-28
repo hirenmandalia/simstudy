@@ -65,7 +65,7 @@ export function PersonaReview() {
       <div className="space-y-5">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Personas ({cur.data.personas.length})</h1>
-          <p className="mt-1 text-sm text-slate-500">Fictional people. Each becomes an AI participant that sees only its own card, the approved tasks and the screens.</p>
+          <p className="mt-1 text-sm text-slate-500">Fictional people. Each becomes an AI participant that sees only its own card, the approved discussion guide and the screens.</p>
         </div>
         {project.personas.reviewNote && <Callout tone="amber" title="Review note" items={[project.personas.reviewNote]} />}
         <Callout tone="amber" title="Check before approving" items={warnings} />

@@ -229,7 +229,7 @@ function buildUserContent(project: Project, pmText: string, verdict: GuardVerdic
 }
 
 const BLOCKED_REPLY =
-  "I can't help with that. It falls outside this tool's permitted use (illegal, abusive, profane or otherwise inappropriate content), so I won't use or analyse that material. If you'd like, rephrase the request as a safe, appropriate simulated usability study or focus group and I'll pick up from there.";
+  "I can't help with that. It falls outside this tool's permitted use (illegal, abusive, profane or otherwise inappropriate content), so I won't use or analyse that material. If you'd like, rephrase the request as a safe, appropriate simulated focus group and I'll pick up from there.";
 
 export interface TurnOutcome {
   message: ChatMessage;

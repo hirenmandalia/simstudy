@@ -5,6 +5,8 @@ system prompt. It uses the guidance to pick a method, spot missing inputs, write
 neutral tasks and questions, define persona qualities, check study quality, and
 structure the report.
 
+SimStudy now runs simulated focus groups only. `01` and `02` stay so the agent can explain which questions a focus group only partly answers and when to recommend real usability testing outside SimStudy.
+
 ## Status: cited draft (sources verified 4 Oct 2026) — PM review still required
 
 Each guideline file (01–07) cites its sources inline as [n], with a numbered **Sources** list at the end. Every source was opened and checked against the claim it supports, unless a note in the file says otherwise. The text paraphrases the sources in our own words and does not reproduce them. Where something is our own product guidance rather than a sourced claim, the file says so.

@@ -19,7 +19,6 @@ import { audit, notice } from "@/lib/review";
 import {
   ConsistencyCheck,
   ModeratorProbe,
-  TaskAttempt,
   type Persona,
   type StudyDesignInput,
 } from "@/lib/schemas";
@@ -69,7 +68,7 @@ export async function startRun(
     };
     p.runs.push(run);
     audit(p, "pm", "run_started", `${run.id} (design v${design.version}, personas v${personas.version}) via ${initiatedBy}`);
-    notice(p, `Simulated ${design.data.method === "usability_test" ? "usability test" : "focus group"} started with ${personas.data.personas.length} AI personas.`, [
+    notice(p, `Simulated focus group started with ${personas.data.personas.length} AI personas.`, [
       { label: "Watch the run", href: `/projects/${p.id}/run` },
     ]);
     return { started: true as const, runId: run.id };
@@ -91,15 +90,9 @@ export async function startRun(
 }
 
 function estimateSteps(design: StudyDesignInput, n: number): number {
-  const perPersona =
-    design.method === "usability_test"
-      ? design.warmUpQuestions.length + design.tasks.length * 3 + design.interviewQuestions.length
-      : 0;
-  // Focus group: opening round, per question (round + probe + ~2 replies + cross-talk),
-  // ending round, summary, confirmation round.
-  const group =
-    design.method === "focus_group" ? n + design.interviewQuestions.length * (n + 1 + 2 + 2) + n + 1 + n : 0;
-  return perPersona * n + group + n /* consistency */ + 1 /* report */;
+  // Opening round, per question (round + probe + ~2 replies + cross-talk),
+  // ending round, summary, confirmation round, then consistency checks and the report.
+  return n + design.interviewQuestions.length * (n + 1 + 2 + 2) + n + 1 + n + n + 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,13 +170,7 @@ async function executeRun(userId: string, projectId: string, runId: string) {
     const pack = await loadScreenPack(userId, projectId, screens, run.flowNotes);
     const questionGuidance = await loadKnowledgeBase(["04-"]);
 
-    if (run.design.method === "usability_test") {
-      await mapLimit(run.personas.personas, CONCURRENCY, (persona) =>
-        usabilitySession(rec, run.design, persona, pack, questionGuidance),
-      );
-    } else {
-      await focusGroupSession(rec, run.design, run.personas.personas, pack, questionGuidance);
-    }
+    await focusGroupSession(rec, run.design, run.personas.personas, pack, questionGuidance);
     await rec.flush(0, "Checking persona consistency");
 
     // Consistency check per persona.
@@ -236,117 +223,12 @@ async function executeRun(userId: string, projectId: string, runId: string) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Usability test: one-to-one session per persona
-// ---------------------------------------------------------------------------
-
-async function usabilitySession(
-  rec: Recorder,
-  design: StudyDesignInput,
-  persona: Persona,
-  pack: ScreenPack,
-  questionGuidance: string,
-) {
-  const system = personaSystemPrompt(persona, design.method);
-  const sid = persona.id;
-  const speaker = { kind: "persona" as const, personaId: persona.id, name: persona.name };
-  const mod = { kind: "moderator" as const };
-  const messages: BetaMessageParam[] = [];
-
-  const ask = async (moderatorText: string, first = false): Promise<string> => {
-    const content: BetaContentBlockParam[] = first ? [...pack.blocks] : [];
-    content.push({ type: "text", text: `Moderator: ${moderatorText}` });
-    messages.push({ role: "user", content });
-    const text = await personaText(rec.usage, system, messages);
-    messages.push({ role: "assistant", content: text });
-    return text;
-  };
-
-  // Introduction + warm-up
-  const warmUps = design.warmUpQuestions.length ? design.warmUpQuestions : ["To start, tell me a little about how you use apps like this today."];
-  for (let i = 0; i < warmUps.length; i++) {
-    const q = i === 0 ? `${design.moderatorIntroduction}\n\n${warmUps[0]}` : warmUps[i];
-    rec.line({ sessionId: sid, speaker: mod, kind: i === 0 ? "intro" : "warm_up", taskId: null, questionId: null, text: q, attempt: null });
-    const a = await ask(q, i === 0);
-    rec.line({ sessionId: sid, speaker, kind: "answer", taskId: null, questionId: null, text: a, attempt: null });
-    await rec.flush(1, `${persona.name}: warm-up`);
-  }
-
-  // Tasks
-  for (const task of design.tasks) {
-    const prompt = `Here's a task. ${task.scenario}${task.startScreen ? ` (You start on screen ${task.startScreen}.)` : ""}\nPlease think aloud as you work through the screens, then tell me how easy that was on a scale from 1 (very difficult) to 7 (very easy).`;
-    rec.line({ sessionId: sid, speaker: mod, kind: "task_prompt", taskId: task.id, questionId: null, text: prompt, attempt: null });
-    messages.push({ role: "user", content: [{ type: "text", text: `Moderator: ${prompt}` }] });
-    let attemptText: string;
-    let attempt: TaskAttempt | null = null;
-    try {
-      const { data } = await retryOnce(() =>
-        completeStructured(
-          {
-            model: MODELS.persona,
-            max_tokens: 12000,
-            output_config: { effort: PERSONA_EFFORT },
-            system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-            cache_control: { type: "ephemeral" },
-            messages,
-          },
-          TaskAttempt,
-          { usage: rec.usage },
-        ),
-      );
-      attempt = { ...data, easeRating: Math.min(7, Math.max(1, Math.round(data.easeRating))) };
-      attemptText = data.thinkAloud;
-    } catch (e) {
-      if (!(e instanceof RefusalError)) throw e;
-      attemptText = "(No response: declined by the model's safety system.)";
-    }
-    messages.push({ role: "assistant", content: attempt ? JSON.stringify(attempt) : attemptText });
-    rec.line({ sessionId: sid, speaker, kind: "task_attempt", taskId: task.id, questionId: null, text: attemptText, attempt });
-    await rec.flush(1, `${persona.name}: ${task.title}`);
-
-    // Moderator follow-up probe
-    const probe = await moderatorProbe(rec.usage, design, questionGuidance, [persona], {
-      context: `Task ${task.id} "${task.title}": ${task.scenario}\nRelated probes from the guide: ${relatedProbes(design, task.relatedQuestionIds)}`,
-      recent: attempt
-        ? `${persona.name} (think-aloud): ${attempt.thinkAloud}\nOutcome: ${attempt.outcome}; ease ${attempt.easeRating}/7; confusion: ${attempt.confusionPoints.join("; ") || "none"}; expectations not met: ${attempt.expectationsNotMet.join("; ") || "none"}`
-        : `${persona.name}: ${attemptText}`,
-    });
-    rec.line({ sessionId: sid, speaker: mod, kind: "probe", taskId: task.id, questionId: null, text: probe.probe, attempt: null });
-    await rec.flush(1);
-    const answer = await ask(probe.probe);
-    rec.line({ sessionId: sid, speaker, kind: "answer", taskId: task.id, questionId: null, text: answer, attempt: null });
-    await rec.flush(1);
-  }
-
-  // Debrief
-  for (const q of design.interviewQuestions) {
-    rec.line({ sessionId: sid, speaker: mod, kind: "question", taskId: null, questionId: q.id, text: q.question, attempt: null });
-    const a = await ask(q.question);
-    rec.line({ sessionId: sid, speaker, kind: "answer", taskId: null, questionId: q.id, text: a, attempt: null });
-    await rec.flush(1, `${persona.name}: debrief`);
-  }
-  rec.line({ sessionId: sid, speaker: mod, kind: "closing", taskId: null, questionId: null, text: design.closingRemarks, attempt: null });
-  await rec.flush(0, `${persona.name}: session complete`);
-}
-
-function relatedProbes(design: StudyDesignInput, rqIds: string[]): string {
-  const probes = design.interviewQuestions.filter((q) => q.relatedQuestionIds.some((id) => rqIds.includes(id))).flatMap((q) => q.probes);
-  return probes.length ? probes.join(" | ") : "(none)";
-}
-
 /**
- * One persona reply. `cacheConversation` adds a breakpoint at the end of the
- * conversation, which pays off in multi-turn usability sessions (the next turn
- * reuses it). Focus-group calls are single-turn with a discussion that changes
- * every call, so caching it would write a cache entry that's never read; they
- * rely on the persona-instruction and screen breakpoints only.
+ * One persona reply. Focus-group calls are single-turn, and the discussion they
+ * carry changes every call, so only the persona instructions and the screens are
+ * cached; caching the discussion would write a cache entry that's never read.
  */
-async function personaText(
-  usage: UsageTotals,
-  system: string,
-  messages: BetaMessageParam[],
-  cacheConversation = true,
-): Promise<string> {
+async function personaText(usage: UsageTotals, system: string, messages: BetaMessageParam[]): Promise<string> {
   try {
     const { text } = await completeText(
       {
@@ -354,7 +236,6 @@ async function personaText(
         max_tokens: 8000,
         output_config: { effort: PERSONA_EFFORT },
         system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-        ...(cacheConversation ? { cache_control: { type: "ephemeral" as const } } : {}),
         messages,
       },
       { usage },
@@ -412,7 +293,7 @@ async function focusGroupSession(
   const roster = personas.map((p) => `${p.name} (${p.label})`).join(", ");
 
   const say = async (persona: Persona, moderatorLine: string, addressed: "you" | "the group") => {
-    const system = personaSystemPrompt(persona, "focus_group");
+    const system = personaSystemPrompt(persona);
     const content: BetaContentBlockParam[] = [
       ...pack.blocks,
       {
@@ -420,15 +301,13 @@ async function focusGroupSession(
         text: `Participants in this group: ${roster}. You are ${persona.name}.\n\nDiscussion so far:\n${discussion.join("\n") || "(just starting)"}\n\nModerator (to ${addressed}): ${moderatorLine}\n\nRespond as ${persona.name} would speak in a group: 1-4 sentences, reacting to others where natural. Agree or disagree honestly.`,
       } satisfies BetaTextBlockParam,
     ];
-    const text = await personaText(rec.usage, system, [{ role: "user", content }], false);
+    const text = await personaText(rec.usage, system, [{ role: "user", content }]);
     rec.line({
       sessionId: sid,
       speaker: { kind: "persona", personaId: persona.id, name: persona.name },
       kind: "discussion",
-      taskId: null,
       questionId: currentQ,
       text,
-      attempt: null,
     });
     discussion.push(`${persona.name}: ${text}`);
     await rec.flush(1, `Group discussion: ${persona.name}`);
@@ -436,7 +315,7 @@ async function focusGroupSession(
 
   let currentQ: string | null = null;
   const line = (kind: TranscriptLine["kind"], text: string, questionId: string | null) => {
-    rec.line({ sessionId: sid, speaker: mod, kind, taskId: null, questionId, text, attempt: null });
+    rec.line({ sessionId: sid, speaker: mod, kind, questionId, text });
     discussion.push(`Moderator: ${text}`);
   };
 
@@ -493,7 +372,7 @@ async function focusGroupSession(
   await rec.flush(1, "Moderator summary");
   for (const p of personas) await say(p, summaryText, "the group");
 
-  rec.line({ sessionId: sid, speaker: mod, kind: "closing", taskId: null, questionId: null, text: design.closingRemarks, attempt: null });
+  rec.line({ sessionId: sid, speaker: mod, kind: "closing", questionId: null, text: design.closingRemarks });
   await rec.flush(0, "Group discussion complete");
 
   function byId(id: string) {
@@ -536,14 +415,11 @@ async function consistencyCheck(
   pack: ScreenPack,
 ): Promise<ConsistencyCheck> {
   const lines = transcript
-    // Usability: this persona's own session. Focus group: the whole discussion, for context.
+    // The whole group discussion, for context; only this persona's lines are checked.
     .filter((l) => l.sessionId === persona.id || l.sessionId === "group")
     .map((l) => {
       const who = l.speaker.kind === "moderator" ? "Moderator" : l.speaker.name;
-      const extra = l.attempt
-        ? `\n    [steps: ${l.attempt.stepsTaken.map((s) => `${s.screen}: ${s.action} — ${s.thought}`).join(" / ")}]`
-        : "";
-      return `${l.id} ${who}: ${l.text}${extra}`;
+      return `${l.id} ${who}: ${l.text}`;
     })
     .join("\n");
   try {

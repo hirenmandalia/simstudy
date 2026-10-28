@@ -2,8 +2,6 @@ import { SIM_LABEL } from "@/agent/prompts";
 import type { Quote } from "./schemas";
 import type { Report } from "./types";
 
-const methodName = (m: Report["scope"]["method"]) => (m === "usability_test" ? "Usability test (simulated)" : "Focus group (simulated)");
-
 function personaName(r: Report, id: string) {
   const p = r.scope.personas.find((x) => x.id === id);
   return p ? `${p.name} (${p.label})` : id;
@@ -32,7 +30,7 @@ export function reportToMarkdown(r: Report, meta: { version: number; approvedAt:
     [
       `- **Feature:** ${r.scope.featureUnderTest}`,
       `- **Decision this informs (owned by the PM):** ${r.scope.decisionToSupport}`,
-      `- **Method:** ${methodName(r.scope.method)}`,
+      `- **Method:** ${(r.scope.method as string) === "usability_test" ? "Usability test (simulated, legacy)" : "Focus group (simulated)"}`,
       `- **Simulated participants (${r.scope.participantCount}):** ${r.scope.personas.map((p) => `${p.name} — ${p.label}`).join("; ")}`,
       `- **Screens:** ${r.scope.screens.map((s) => `${s.code} ${s.label}`).join(", ") || "none"}`,
       `- **Approved inputs:** study design v${r.scope.designVersion}, personas v${r.scope.personaVersion}`,
@@ -43,18 +41,6 @@ export function reportToMarkdown(r: Report, meta: { version: number; approvedAt:
   for (const rq of r.researchQuestions) {
     const a = d.researchQuestionAnswers.find((x) => x.questionId === rq.id);
     out.push(`### ${rq.id}. ${rq.text}\n${a ? `${a.answer}\n\n*Confidence: ${a.confidence}*\n\n${quotes(r, a.evidence)}` : "_Not answered._"}`);
-  }
-  if (r.taskMetrics.length) {
-    out.push(`## Task results (simulated)`);
-    out.push(
-      [
-        "| Task | Completed | With difficulty | Failed | Gave up | Avg. ease (1–7) |",
-        "|---|---|---|---|---|---|",
-        ...r.taskMetrics.map(
-          (t) => `| ${t.taskId} ${t.title} | ${t.completed} | ${t.completedWithDifficulty} | ${t.failed} | ${t.gaveUp} | ${t.averageEase ?? "–"} |`,
-        ),
-      ].join("\n"),
-    );
   }
   out.push(`## Findings`);
   for (const f of d.findings) {

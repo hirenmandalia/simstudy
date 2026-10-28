@@ -40,7 +40,6 @@ export function renderProjectState(p: Project): string {
     if (p.design.reviewNote) lines.push(`- PM review note: ${p.design.reviewNote}`);
     lines.push(`- Method: ${d.data.method}; participants: ${d.data.participantCount}`);
     lines.push(`- Research questions: ${d.data.researchQuestions.map((q) => `${q.id} [${q.origin}] ${q.text}`).join(" | ")}`);
-    if (d.data.tasks.length) lines.push(`- Tasks: ${d.data.tasks.map((t) => `${t.id} ${t.title}`).join(" | ")}`);
     lines.push(`- Questions: ${d.data.interviewQuestions.map((q) => `${q.id} ${q.question}`).join(" | ")}`);
     const chk = checkDesign(d.data, p);
     if (chk.blocking.length) lines.push(`- Blocking issues: ${chk.blocking.join(" ")}`);
