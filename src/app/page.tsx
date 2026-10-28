@@ -2,9 +2,20 @@ import { redirect } from "next/navigation";
 import { signIn, googleConfigured, devLoginEnabled } from "@/auth";
 import { currentUser } from "@/lib/session";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { enterCode } from "./actions";
 
-export default async function Home() {
+const CODE_ERRORS: Record<string, string> = {
+  invalid: "That code isn't valid. Check it and try again.",
+  rate_limited: "Too many attempts. Wait 15 minutes and try again.",
+  expired: "This code has expired. Ask the person who gave it to you for a new one.",
+  disabled: "This code has been switched off. Ask the person who gave it to you.",
+  used: "This code's study was deleted, so the code is used up. Ask the person who gave it to you for a new one.",
+};
+
+export default async function Home({ searchParams }: PageProps<"/">) {
   if (await currentUser()) redirect("/projects");
+  const { error, deleted } = await searchParams;
+  const errorText = typeof error === "string" ? CODE_ERRORS[error] : undefined;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
@@ -35,8 +46,36 @@ export default async function Home() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Sign in</h2>
-          <p className="mt-1 text-sm text-slate-500">Your studies are private to your account.</p>
+          <h2 className="text-lg font-semibold">Start my study</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Enter your activation code. It opens your own private study; enter it again any time, on any device, to continue
+            where you left off.
+          </p>
+          {deleted === "1" && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">Your study was deleted.</p>}
+          <form action={enterCode} className="mt-5 space-y-3">
+            <label htmlFor="code" className="block text-sm font-medium text-slate-700">
+              Activation code
+            </label>
+            <input
+              id="code"
+              name="code"
+              required
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              placeholder="SIM-XXXX-XXXX"
+              maxLength={20}
+              aria-invalid={Boolean(errorText)}
+              aria-describedby={errorText ? "code-error" : undefined}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-base tracking-wider uppercase placeholder:normal-case placeholder:tracking-normal focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+            {errorText && (
+              <p id="code-error" role="alert" className="text-sm text-rose-600">
+                {errorText}
+              </p>
+            )}
+            <button className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white hover:opacity-90">Start my study</button>
+          </form>
           <div className="mt-6 space-y-3">
             {googleConfigured && (
               <form
@@ -69,15 +108,10 @@ export default async function Home() {
                 <p className="mt-2 text-xs text-slate-400">Local development only. Configure Google OAuth to disable.</p>
               </form>
             )}
-            {!googleConfigured && !devLoginEnabled && (
-              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Sign-in isn&apos;t configured. Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET in .env.local.
-              </p>
-            )}
           </div>
           <p className="mt-6 border-t border-slate-100 pt-4 text-xs leading-relaxed text-slate-500">
             All study output is AI-generated simulated research. Use public, redacted, demo-safe screens only. Never upload private
-            company data or real user data. The prototype is free.
+            company data or real user data.
           </p>
         </div>
       </div>

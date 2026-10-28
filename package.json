@@ -14,7 +14,9 @@
     "render-demo-screens": "sh demo/render-screens.sh",
     "db:migrate": "tsx --env-file=.env.development.local scripts/db-migrate.ts",
     "store:check": "STORE_BACKEND=file DATA_DIR=./eval-data tsx scripts/store-check.ts",
-    "store:check:supabase": "STORE_BACKEND=supabase tsx --env-file=.env.development.local scripts/store-check.ts"
+    "store:check:supabase": "STORE_BACKEND=supabase tsx --env-file=.env.development.local scripts/store-check.ts",
+    "codes": "STORE_BACKEND=supabase tsx --env-file=.env.development.local scripts/codes.ts",
+    "codes:local": "STORE_BACKEND=file tsx scripts/codes.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

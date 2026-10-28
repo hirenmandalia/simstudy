@@ -23,6 +23,7 @@ import {
   type StudyDesignInput,
 } from "@/lib/schemas";
 import { approvedVersion, copyUsage, emptyUsage, mergeUsage, type Run, type Screen, type TranscriptLine, type UsageTotals } from "@/lib/types";
+import { budgetCapFor, budgetMessage, budgetProblem, usageUsd } from "@/lib/budget";
 
 type Effort = "low" | "medium" | "high";
 const PERSONA_EFFORT = (process.env.PERSONA_EFFORT as Effort | undefined) ?? "low";
@@ -40,6 +41,8 @@ export async function startRun(
   projectId: string,
   initiatedBy: string,
 ): Promise<{ started: true; runId: string } | { started: false; blockers: string[] }> {
+  const overBudget = await budgetProblem(userId, projectId);
+  if (overBudget) return { started: false, blockers: [overBudget] };
   const { result } = await updateProject(userId, projectId, (p) => {
     const blockers = runGate(p);
     if (blockers.length) {
@@ -102,6 +105,7 @@ function estimateSteps(design: StudyDesignInput, n: number): number {
 class Recorder {
   private lineNo = 0;
   readonly usage: UsageTotals = emptyUsage();
+  private budget: { capUsd: number; spentBeforeUsd: number } | null = null;
   private pending: TranscriptLine[] = [];
   private flushing: Promise<unknown> = Promise.resolve();
 
@@ -111,7 +115,18 @@ class Recorder {
     private runId: string,
   ) {}
 
+  /** Stop the run once the study's spend (before this run plus this run so far) reaches the code's cap. */
+  setBudget(capUsd: number | null, spentBeforeUsd: number) {
+    this.budget = capUsd === null ? null : { capUsd, spentBeforeUsd };
+  }
+
+  assertBudget() {
+    if (this.budget && this.budget.spentBeforeUsd + usageUsd(this.usage) >= this.budget.capUsd)
+      throw new Error(budgetMessage(this.budget.capUsd));
+  }
+
   line(partial: Omit<TranscriptLine, "id" | "at">): TranscriptLine {
+    this.assertBudget();
     this.lineNo += 1;
     const line: TranscriptLine = { ...partial, id: `L${String(this.lineNo).padStart(3, "0")}`, at: now() };
     this.pending.push(line);
@@ -166,6 +181,7 @@ async function executeRun(userId: string, projectId: string, runId: string) {
   try {
     const project = await getProject(userId, projectId);
     const run = project.runs.find((r) => r.id === runId)!;
+    rec.setBudget(await budgetCapFor(userId), usageUsd(project.usage));
     const screens = [...project.screens].sort((a, b) => a.order - b.order);
     const pack = await loadScreenPack(userId, projectId, screens, run.flowNotes);
     const questionGuidance = await loadKnowledgeBase(["04-"]);
@@ -178,6 +194,7 @@ async function executeRun(userId: string, projectId: string, runId: string) {
     const transcript = latest.runs.find((r) => r.id === runId)!.transcript;
     const checks: Record<string, ConsistencyCheck> = {};
     await mapLimit(run.personas.personas, CONCURRENCY, async (persona) => {
+      rec.assertBudget();
       checks[persona.id] = await consistencyCheck(rec.usage, persona, transcript, pack);
       await rec.flush(1);
     });

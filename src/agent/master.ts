@@ -25,6 +25,7 @@ import {
   type GuardVerdict,
 } from "@/lib/schemas";
 import { emptyUsage, mergeUsage, type ChatMessage, type Project, type UsageTotals } from "@/lib/types";
+import { assertBudget } from "@/lib/budget";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -243,6 +244,7 @@ export async function runMasterTurn(userId: string, projectId: string, pmText: s
   if (!text) throw new UserFacingError("Message is empty.");
   if (text.length > 8000) throw new UserFacingError("Message is too long (8,000 characters max).");
   if (activeTurns.has(projectId)) throw new UserFacingError("The agent is still replying to your previous message.", 409);
+  await assertBudget(userId, projectId);
   activeTurns.add(projectId);
 
   const usage = emptyUsage();

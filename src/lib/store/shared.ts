@@ -35,6 +35,27 @@ export interface ShareRecord {
   projectId: string;
 }
 
+/**
+ * An activation code. Its id is also the owner id of the one study the code
+ * opens. Only a hash of the code is kept, so codes can't be read back.
+ */
+export interface AccessCode {
+  id: string;
+  hash: string;
+  /** Operator's private note (who it was given to). Never shown in the app. */
+  label: string | null;
+  capUsd: number;
+  createdAt: string;
+  expiresAt: string;
+  disabledAt: string | null;
+  lastUsedAt: string | null;
+  projectId: string | null;
+  /** Set when the code's study is deleted; the code is then used up. */
+  studyDeletedAt: string | null;
+}
+
+export type AccessCodePatch = Partial<Pick<AccessCode, "label" | "capUsd" | "expiresAt" | "disabledAt" | "lastUsedAt" | "studyDeletedAt">>;
+
 export function stageLabel(p: Project): string {
   if (p.report.status === "approved") return "Report approved";
   if (p.report.versions.length) return "Report in review";
@@ -68,4 +89,16 @@ export interface StoreBackend {
   saveShare(token: string, record: ShareRecord): Promise<void>;
   readShare(token: string): Promise<ShareRecord>;
   deleteShare(token: string): Promise<void>;
+
+  insertCode(code: AccessCode): Promise<void>;
+  findCodeByHash(hash: string): Promise<AccessCode | null>;
+  getCode(id: string): Promise<AccessCode | null>;
+  listCodes(): Promise<AccessCode[]>;
+  updateCode(id: string, patch: AccessCodePatch): Promise<AccessCode | null>;
+  /** Attach the code's study. False if the code already has one. */
+  claimCodeStudy(id: string, projectId: string): Promise<boolean>;
+  deleteCode(id: string): Promise<void>;
+  recordFailedAttempt(key: string): Promise<void>;
+  /** Failed code entries since `sinceIso`, for one key (e.g. an IP) or for all when key is null. */
+  countFailedAttempts(key: string | null, sinceIso: string): Promise<number>;
 }

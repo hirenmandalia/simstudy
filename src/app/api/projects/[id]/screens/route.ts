@@ -4,6 +4,7 @@ import { getProject, newId, now, saveUpload, updateProject } from "@/lib/store";
 import { checkScreen } from "@/agent/screenCheck";
 import { agentEvent, assertNotRunning, audit, withdrawDesignApproval } from "@/lib/review";
 import { prepareScreenshot } from "@/lib/images";
+import { assertBudget } from "@/lib/budget";
 import { emptyUsage, mergeUsage, toClientProject, type Screen } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -31,6 +32,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/projects/[id]/s
 
     const existing = await getProject(user.id, id);
     assertNotRunning(existing);
+    await assertBudget(user.id, existing);
     if (existing.screens.length + files.length > MAX_SCREENS) throw new UserFacingError(`A study can have at most ${MAX_SCREENS} screens.`);
 
     const usage = emptyUsage();

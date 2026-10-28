@@ -2,18 +2,31 @@ import crypto from "crypto";
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { verifyCodeForSignIn } from "@/lib/codes";
 
 /**
- * Google sign-in for real use. When Google OAuth isn't configured (or
- * ENABLE_DEV_LOGIN=true) a "Demo PM" login is available in development only,
- * so the prototype can be run locally without OAuth credentials.
+ * Activation codes are the way in for the hosted pilot: the code's id becomes
+ * the user id, so the same code reaches the same study from any browser. The
+ * landing page's server action rate-limits entries before calling signIn.
+ * Google sign-in works when configured. When it isn't (or ENABLE_DEV_LOGIN=true)
+ * a "Demo PM" login is available in development only.
  */
 export const googleConfigured = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 export const devLoginEnabled =
   process.env.NODE_ENV !== "production" &&
   (process.env.ENABLE_DEV_LOGIN === "true" || (!googleConfigured && process.env.ENABLE_DEV_LOGIN !== "false"));
 
-const providers: NextAuthConfig["providers"] = [];
+const providers: NextAuthConfig["providers"] = [
+  Credentials({
+    id: "code",
+    name: "Activation code",
+    credentials: { code: {} },
+    authorize: async (credentials) => {
+      const code = await verifyCodeForSignIn(String(credentials?.code ?? ""));
+      return code ? { id: code.id, name: "Your study" } : null;
+    },
+  }),
+];
 if (googleConfigured) providers.push(Google);
 if (devLoginEnabled) {
   providers.push(
@@ -38,13 +51,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/" },
   callbacks: {
     jwt({ token, user, account }) {
-      if (account && user) {
+      if (account?.provider === "code" && user?.id) {
+        token.uid = user.id;
+        token.codeId = user.id;
+      } else if (account && user) {
         token.uid = storageId(account.provider, account.providerAccountId ?? user.id ?? "unknown");
       }
       return token;
     },
     session({ session, token }) {
       if (session.user && typeof token.uid === "string") session.user.id = token.uid;
+      if (session.user && typeof token.codeId === "string") (session.user as { codeId?: string }).codeId = token.codeId;
       return session;
     },
   },

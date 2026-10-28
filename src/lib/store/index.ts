@@ -9,9 +9,9 @@ import { newId, now, type StoreBackend } from "./shared";
  * the hosted app (Render, Vercel) uses Supabase. Override with STORE_BACKEND=file|supabase.
  */
 
-export { NotFoundError, newId, now, type ProjectSummary } from "./shared";
+export { NotFoundError, newId, now, type AccessCode, type ProjectSummary } from "./shared";
 
-function backend(): StoreBackend {
+export function backend(): StoreBackend {
   // Hosting platforms set VERCEL / RENDER. `vercel env pull` copies VERCEL=1 into
   // local env files, so also require a production build.
   const hosted = (process.env.VERCEL || process.env.RENDER) && process.env.NODE_ENV === "production";

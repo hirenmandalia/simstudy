@@ -7,9 +7,10 @@
  */
 import assert from "node:assert/strict";
 import {
-  createProject, createShare, deleteProject, deleteUpload, getProject, listProjects,
+  backend, createProject, createShare, deleteProject, deleteUpload, getProject, listProjects,
   NotFoundError, readUpload, removeShare, resolveShare, saveUpload, updateProject,
 } from "@/lib/store";
+import { activeCodeFor, checkCodeEntry, claimCodeStudy, codeStatus, createAccessCode, normalizeCode, updateCode } from "@/lib/codes";
 
 const USER = "ustorecheck01";
 const OTHER = "ustorecheck02";
@@ -91,6 +92,41 @@ async function main() {
   await step("delete removes project and screens", async () => {
     await rejectsNotFound(getProject(USER, id), "deleted project");
     await assert.rejects(readUpload(USER, id, "S2-check.png"));
+  });
+
+  await step("activation codes: format, entry, one study, disable, expiry", async () => {
+    assert.equal(normalizeCode(" sim-abcd-efgh "), "ABCDEFGH");
+    assert.equal(normalizeCode("SIM-ABCD-EFG0"), null, "0 is not in the alphabet");
+    const ip = `ip:check-${Date.now()}`;
+    const { code, record } = await createAccessCode({ label: "store check", capUsd: 1, days: 1 });
+    assert.match(code, /^SIM-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/);
+    assert.notEqual(record.hash, code, "only a hash is stored");
+
+    const entry = await checkCodeEntry(code.toLowerCase().replace(/-/g, " "), ip);
+    assert.ok(entry.ok && entry.code.id === record.id, "code accepted in any case/spacing");
+    assert.ok(await activeCodeFor(record.id));
+
+    assert.equal(await claimCodeStudy(record.id, "pcheckstudy1"), true);
+    assert.equal(await claimCodeStudy(record.id, "pcheckstudy2"), false, "second study refused");
+
+    await updateCode(record.id, { disabledAt: new Date().toISOString() });
+    assert.equal(await activeCodeFor(record.id), null, "disabled code signs out");
+    const disabled = await checkCodeEntry(code, ip);
+    assert.ok(!disabled.ok && disabled.reason === "disabled");
+    await updateCode(record.id, { disabledAt: null, expiresAt: new Date(Date.now() - 1000).toISOString() });
+    assert.equal(codeStatus((await backend().getCode(record.id))!), "expired");
+    await backend().deleteCode(record.id);
+    assert.equal(await backend().getCode(record.id), null);
+  });
+
+  await step("activation codes: wrong guesses are rate-limited", async () => {
+    const ip = `ip:guess-${Date.now()}`;
+    for (let i = 0; i < 8; i++) {
+      const r = await checkCodeEntry("SIM-2222-2222", ip);
+      assert.ok(!r.ok && r.reason === "invalid", `guess ${i + 1} is invalid`);
+    }
+    const blocked = await checkCodeEntry("SIM-2222-2222", ip);
+    assert.ok(!blocked.ok && blocked.reason === "rate_limited", "9th guess blocked");
   });
 
   console.log("all store checks passed");

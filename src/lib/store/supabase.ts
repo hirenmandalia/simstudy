@@ -2,7 +2,7 @@ import path from "path";
 import postgres from "postgres";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Project } from "../types";
-import { assertId, assertToken, NotFoundError, stageLabel, type StoreBackend } from "./shared";
+import { assertId, assertToken, NotFoundError, stageLabel, type AccessCode, type StoreBackend } from "./shared";
 
 /**
  * Supabase-backed store for the hosted pilot.
@@ -61,6 +61,45 @@ function objectPath(userId: string, projectId: string, fileName?: string) {
 }
 
 const CONTENT_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
+
+interface CodeRow {
+  id: string;
+  hash: string;
+  label: string | null;
+  cap_usd: string;
+  created_at: Date;
+  expires_at: Date;
+  disabled_at: Date | null;
+  last_used_at: Date | null;
+  project_id: string | null;
+  study_deleted_at: Date | null;
+}
+
+const iso = (d: Date | null) => (d ? d.toISOString() : null);
+
+function toCode(r: CodeRow): AccessCode {
+  return {
+    id: r.id,
+    hash: r.hash,
+    label: r.label,
+    capUsd: Number(r.cap_usd),
+    createdAt: r.created_at.toISOString(),
+    expiresAt: r.expires_at.toISOString(),
+    disabledAt: iso(r.disabled_at),
+    lastUsedAt: iso(r.last_used_at),
+    projectId: r.project_id,
+    studyDeletedAt: iso(r.study_deleted_at),
+  };
+}
+
+const CODE_COLUMNS: Record<string, string> = {
+  label: "label",
+  capUsd: "cap_usd",
+  expiresAt: "expires_at",
+  disabledAt: "disabled_at",
+  lastUsedAt: "last_used_at",
+  studyDeletedAt: "study_deleted_at",
+};
 
 async function read(userId: string, projectId: string): Promise<Project> {
   assertId(userId, "user");
@@ -161,5 +200,57 @@ export const supabaseBackend: StoreBackend = {
   async deleteShare(token) {
     assertToken(token);
     await db()`delete from shares where token = ${token}`;
+  },
+
+  async insertCode(c) {
+    await db()`
+      insert into access_codes (id, hash, label, cap_usd, created_at, expires_at, disabled_at, last_used_at, project_id, study_deleted_at)
+      values (${c.id}, ${c.hash}, ${c.label}, ${c.capUsd}, ${c.createdAt}, ${c.expiresAt}, ${c.disabledAt}, ${c.lastUsedAt}, ${c.projectId}, ${c.studyDeletedAt})`;
+  },
+
+  async findCodeByHash(hash) {
+    const [row] = await db()<CodeRow[]>`select * from access_codes where hash = ${hash}`;
+    return row ? toCode(row) : null;
+  },
+
+  async getCode(id) {
+    const [row] = await db()<CodeRow[]>`select * from access_codes where id = ${id}`;
+    return row ? toCode(row) : null;
+  },
+
+  async listCodes() {
+    return (await db()<CodeRow[]>`select * from access_codes order by created_at desc`).map(toCode);
+  },
+
+  async updateCode(id, patch) {
+    const sql = db();
+    const values: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) values[CODE_COLUMNS[k]] = v;
+    if (!Object.keys(values).length) return this.getCode(id);
+    const [row] = await sql<CodeRow[]>`update access_codes set ${sql(values)} where id = ${id} returning *`;
+    return row ? toCode(row) : null;
+  },
+
+  async claimCodeStudy(id, projectId) {
+    const rows = await db()`update access_codes set project_id = ${projectId} where id = ${id} and project_id is null returning id`;
+    return rows.length === 1;
+  },
+
+  async deleteCode(id) {
+    await db()`delete from access_codes where id = ${id}`;
+  },
+
+  async recordFailedAttempt(key) {
+    const sql = db();
+    await sql`insert into code_attempts (key) values (${key})`;
+    await sql`delete from code_attempts where at < now() - interval '1 day'`;
+  },
+
+  async countFailedAttempts(key, sinceIso) {
+    const sql = db();
+    const [row] = key === null
+      ? await sql<{ n: number }[]>`select count(*)::int as n from code_attempts where at > ${sinceIso}`
+      : await sql<{ n: number }[]>`select count(*)::int as n from code_attempts where key = ${key} and at > ${sinceIso}`;
+    return row.n;
   },
 };

@@ -1,7 +1,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { Project } from "../types";
-import { assertId, assertToken, ID_RE, NotFoundError, stageLabel, type ProjectSummary, type ShareRecord, type StoreBackend } from "./shared";
+import {
+  assertId, assertToken, ID_RE, NotFoundError, stageLabel,
+  type AccessCode, type ProjectSummary, type ShareRecord, type StoreBackend,
+} from "./shared";
 
 /**
  * File-backed store for local development.
@@ -67,6 +70,34 @@ async function writeJsonAtomic(file: string, value: unknown) {
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(value, null, 2));
   await fs.rename(tmp, file);
+}
+
+// --- activation codes: one small JSON file ------------------------------------
+
+interface CodeFile {
+  codes: AccessCode[];
+  attempts: { key: string; at: string }[];
+}
+
+const CODES_FILE = path.join(DATA_DIR, "codes.json");
+
+async function readCodes(): Promise<CodeFile> {
+  try {
+    return await readJson<CodeFile>(CODES_FILE);
+  } catch (e) {
+    if (e instanceof NotFoundError) return { codes: [], attempts: [] };
+    throw e;
+  }
+}
+
+/** Read-modify-write of codes.json under one lock. */
+async function withCodes<T>(fn: (f: CodeFile) => T): Promise<T> {
+  return withLock(CODES_FILE, async () => {
+    const f = await readCodes();
+    const result = fn(f);
+    await writeJsonAtomic(CODES_FILE, f);
+    return result;
+  });
 }
 
 async function read(userId: string, projectId: string): Promise<Project> {
@@ -142,5 +173,59 @@ export const fileBackend: StoreBackend = {
 
   async deleteShare(token) {
     await fs.rm(shareFile(token), { force: true });
+  },
+
+  async insertCode(code) {
+    await withCodes((f) => {
+      if (f.codes.some((c) => c.id === code.id || c.hash === code.hash)) throw new Error("Duplicate code");
+      f.codes.push(code);
+    });
+  },
+
+  async findCodeByHash(hash) {
+    return (await readCodes()).codes.find((c) => c.hash === hash) ?? null;
+  },
+
+  async getCode(id) {
+    return (await readCodes()).codes.find((c) => c.id === id) ?? null;
+  },
+
+  async listCodes() {
+    return (await readCodes()).codes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  async updateCode(id, patch) {
+    return withCodes((f) => {
+      const c = f.codes.find((x) => x.id === id);
+      if (c) Object.assign(c, patch);
+      return c ?? null;
+    });
+  },
+
+  async claimCodeStudy(id, projectId) {
+    return withCodes((f) => {
+      const c = f.codes.find((x) => x.id === id);
+      if (!c || c.projectId) return false;
+      c.projectId = projectId;
+      return true;
+    });
+  },
+
+  async deleteCode(id) {
+    await withCodes((f) => {
+      f.codes = f.codes.filter((c) => c.id !== id);
+    });
+  },
+
+  async recordFailedAttempt(key) {
+    const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+    await withCodes((f) => {
+      f.attempts = f.attempts.filter((a) => a.at > dayAgo);
+      f.attempts.push({ key, at: new Date().toISOString() });
+    });
+  },
+
+  async countFailedAttempts(key, sinceIso) {
+    return (await readCodes()).attempts.filter((a) => a.at > sinceIso && (key === null || a.key === key)).length;
   },
 };

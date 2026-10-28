@@ -13,6 +13,7 @@ import {
   type TranscriptLine,
   type VerifiedQuote,
 } from "@/lib/types";
+import { budgetProblem } from "@/lib/budget";
 
 const g = globalThis as unknown as { __activeReports?: Set<string> };
 export const activeReports = (g.__activeReports ??= new Set());
@@ -24,6 +25,8 @@ export async function startReportGeneration(
   instructions: string | null,
   by: "agent" | "pm",
 ): Promise<{ started: boolean; reason?: string }> {
+  const overBudget = await budgetProblem(userId, projectId);
+  if (overBudget) return { started: false, reason: overBudget };
   const { result } = await updateProject(userId, projectId, (p) => {
     const run = [...p.runs].reverse().find((r) => r.status === "completed");
     if (!run) return { started: false, reason: "There is no completed study run to report on yet." };
