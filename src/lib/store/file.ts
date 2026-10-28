@@ -3,7 +3,7 @@ import path from "path";
 import type { Project } from "../types";
 import {
   assertId, assertToken, ID_RE, NotFoundError, stageLabel,
-  type AccessCode, type ProjectSummary, type ShareRecord, type StoreBackend,
+  type AccessCode, type AppEvent, type ProjectSummary, type ShareRecord, type StoreBackend,
 } from "./shared";
 
 /**
@@ -101,6 +101,7 @@ async function withCodes<T>(fn: (f: CodeFile) => T): Promise<T> {
 }
 
 const SPEND_FILE = path.join(DATA_DIR, "spend.json");
+const EVENTS_FILE = path.join(DATA_DIR, "events.jsonl");
 
 async function readSpend(): Promise<Record<string, number>> {
   try {
@@ -247,6 +248,25 @@ export const fileBackend: StoreBackend = {
       f.attempts = f.attempts.filter((a) => a.at > dayAgo);
       f.attempts.push({ key, at: new Date().toISOString() });
     });
+  },
+
+  async logEvent(event) {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.appendFile(EVENTS_FILE, JSON.stringify(event) + "\n");
+  },
+
+  async listEvents(sinceIso) {
+    let text = "";
+    try {
+      text = await fs.readFile(EVENTS_FILE, "utf8");
+    } catch {
+      return [];
+    }
+    return text
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as AppEvent)
+      .filter((e) => e.at >= sinceIso);
   },
 
   async addSpend(month, usd) {

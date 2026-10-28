@@ -7,6 +7,7 @@ import { useProject } from "./ProjectContext";
 import { ReviewBar, useReviewApi } from "./ReviewBar";
 import { ReportDocument } from "./ReportDocument";
 import { ListInput } from "./ListInput";
+import { FeedbackCard } from "./FeedbackCard";
 import { Button, Callout, Card, Empty, Field, inputClass, SectionTitle } from "./ui";
 
 export function ReportReview() {
@@ -76,6 +77,8 @@ export function ReportReview() {
             items={[`${cur.data.quoteCheck.total - cur.data.quoteCheck.verified} quote(s) couldn't be matched to the transcript. Remove them or request changes before approving.`]}
           />
         )}
+
+        {approved && <FeedbackCard />}
 
         <Card className="no-print">
           <SectionTitle>Download & share</SectionTitle>

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NotFoundError } from "./store";
 import { UnauthorizedError, UserFacingError } from "./errors";
+import { track } from "./events";
 
 export { UserFacingError };
 
@@ -21,11 +22,17 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
   } catch (e) {
     if (e instanceof UnauthorizedError) return Response.json({ error: e.message }, { status: 401 });
     if (e instanceof NotFoundError) return Response.json({ error: "Not found" }, { status: 404 });
-    if (e instanceof UserFacingError)
+    if (e instanceof UserFacingError) {
+      if (e.status === 402) await track("budget_blocked", { detail: { message: e.message } });
       return Response.json({ error: e.message, details: e.details }, { status: e.status });
+    }
     const llm = describeLlmError(e);
-    if (llm) return Response.json({ error: llm }, { status: 502 });
+    if (llm) {
+      await track("ai_error", { detail: { message: llm.slice(0, 300) } });
+      return Response.json({ error: llm }, { status: 502 });
+    }
     console.error(e);
+    await track("server_error", { detail: { message: (e instanceof Error ? e.message : String(e)).slice(0, 300) } });
     return Response.json({ error: "Unexpected server error" }, { status: 500 });
   }
 }

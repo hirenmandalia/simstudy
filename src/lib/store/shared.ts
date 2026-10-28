@@ -54,6 +54,14 @@ export interface AccessCode {
   studyDeletedAt: string | null;
 }
 
+export interface AppEvent {
+  at: string;
+  kind: string;
+  codeId: string | null;
+  projectId: string | null;
+  detail: Record<string, string | number | boolean | null>;
+}
+
 export type AccessCodePatch = Partial<Pick<AccessCode, "label" | "capUsd" | "expiresAt" | "disabledAt" | "lastUsedAt" | "studyDeletedAt">>;
 
 export function stageLabel(p: Project): string {
@@ -103,6 +111,10 @@ export interface StoreBackend {
   recordFailedAttempt(key: string): Promise<void>;
   /** Failed code entries since `sinceIso`, for one key (e.g. an IP) or for all when key is null. */
   countFailedAttempts(key: string | null, sinceIso: string): Promise<number>;
+
+  /** Product events outside a study's own record (code entries, visits, errors). Best effort. */
+  logEvent(event: AppEvent): Promise<void>;
+  listEvents(sinceIso: string): Promise<AppEvent[]>;
 
   /** App-wide AI spend ledger, one running total per calendar month ("2026-10"). */
   addSpend(month: string, usd: number): Promise<void>;

@@ -2,7 +2,7 @@ import path from "path";
 import postgres from "postgres";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Project } from "../types";
-import { assertId, assertToken, NotFoundError, stageLabel, type AccessCode, type StoreBackend } from "./shared";
+import { assertId, assertToken, NotFoundError, stageLabel, type AccessCode, type AppEvent, type StoreBackend } from "./shared";
 
 /**
  * Supabase-backed store for the hosted pilot.
@@ -254,6 +254,19 @@ export const supabaseBackend: StoreBackend = {
     const sql = db();
     await sql`insert into code_attempts (key) values (${key})`;
     await sql`delete from code_attempts where at < now() - interval '1 day'`;
+  },
+
+  async logEvent(e) {
+    const sql = db();
+    await sql`
+      insert into events (at, kind, code_id, project_id, detail)
+      values (${e.at}, ${e.kind}, ${e.codeId}, ${e.projectId}, ${sql.json(e.detail)})`;
+  },
+
+  async listEvents(sinceIso) {
+    const rows = await db()<{ at: Date; kind: string; code_id: string | null; project_id: string | null; detail: AppEvent["detail"] }[]>`
+      select at, kind, code_id, project_id, detail from events where at >= ${sinceIso} order by at`;
+    return rows.map((r) => ({ at: r.at.toISOString(), kind: r.kind, codeId: r.code_id, projectId: r.project_id, detail: r.detail }));
   },
 
   async addSpend(month, usd) {

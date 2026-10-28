@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/session";
 import { createProject, deleteProject, listProjects, newId, now } from "@/lib/store";
 import { claimCodeStudy, getCode } from "@/lib/codes";
 import { GREETING } from "@/agent/prompts";
+import { track } from "@/lib/events";
 
 export async function GET() {
   return handle(async () => {
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
       await deleteProject(user.id, project.id);
       throw alreadyUsed;
     }
+    await track("study_created", { codeId: user.codeId, projectId: project.id });
     return Response.json({ id: project.id });
   });
 }

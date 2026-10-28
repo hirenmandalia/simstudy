@@ -185,11 +185,24 @@ export interface Project {
   report: ReportReview;
   audit: AuditEvent[];
   usage: UsageTotals;
+  /** The PM's ratings of the approved report, newest last (one entry per submission). */
+  feedback?: StudyFeedback[];
   /**
    * Set when the PM deletes the study. Deleted studies are hidden from every
    * user-facing read but kept, with their screens, for the operator to learn from.
    */
   deletedAt?: string | null;
+}
+
+export interface StudyFeedback {
+  at: string;
+  reportVersion: number;
+  /** 1–5: how useful the report was for the build/launch decision. */
+  usefulness: number;
+  /** 1–5: how much the PM trusts the findings. */
+  trust: number;
+  realUsers: "yes" | "no" | "already" | null;
+  comment: string | null;
 }
 
 /** Project as sent to the browser. */

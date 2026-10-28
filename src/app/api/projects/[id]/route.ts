@@ -2,6 +2,7 @@ import { handle, UserFacingError } from "@/lib/http";
 import { requireUser } from "@/lib/session";
 import { deleteProject, getProject, now, updateProject } from "@/lib/store";
 import { updateCode } from "@/lib/codes";
+import { track } from "@/lib/events";
 import { agentBusy, needsReconcile, reconcileJobs } from "@/agent/jobs";
 import { toClientProject, type StudyBrief } from "@/lib/types";
 import { audit, agentEvent } from "@/lib/review";
@@ -74,6 +75,7 @@ export async function DELETE(_req: Request, ctx: RouteContext<"/api/projects/[id
     await deleteProject(user.id, id);
     // A code opens one study; deleting it uses the code up (and signs the user out).
     if (user.codeId) await updateCode(user.codeId, { studyDeletedAt: now() });
+    await track("study_deleted", { codeId: user.codeId, projectId: id });
     return Response.json({ ok: true });
   });
 }

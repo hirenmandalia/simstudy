@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { ProjectShell } from "@/components/ProjectShell";
 import { DeleteStudyButton } from "@/components/DeleteStudyButton";
 import { budgetCapFor, projectSpendUsd } from "@/lib/budget";
+import { track } from "@/lib/events";
 
 export default async function ProjectLayout({ children, params }: LayoutProps<"/projects/[id]">) {
   const user = await requirePageUser();
@@ -17,6 +18,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
+  // The layout renders once per visit (tab switches inside a study don't re-run it).
+  await track("study_opened", { codeId: user.codeId, projectId: project.id });
   const cap = await budgetCapFor(user.id);
   return (
     <div className="print-flow flex h-screen flex-col">

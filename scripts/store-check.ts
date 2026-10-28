@@ -145,6 +145,13 @@ async function main() {
     assert.equal(await backend().getSpend(`${month}-none`), 0);
   });
 
+  await step("events log records and lists", async () => {
+    const since = new Date(Date.now() - 1000).toISOString();
+    await backend().logEvent({ at: new Date().toISOString(), kind: "check-event", codeId: null, projectId: id, detail: { ok: true } });
+    const found = (await backend().listEvents(since)).find((e) => e.kind === "check-event" && e.projectId === id);
+    assert.deepEqual(found?.detail, { ok: true });
+  });
+
   await purgeCheckData();
   console.log("all store checks passed");
   process.exit(0);
@@ -152,7 +159,7 @@ async function main() {
 
 /**
  * Studies are never really deleted, so remove this script's own test data
- * (owner "ustorecheck…", "test-…" spend months) to keep it out of real data.
+ * (owner "ustorecheck…", "test-…" spend months, "check-…" events) to keep it out of real data.
  */
 async function purgeCheckData() {
   if (process.env.STORE_BACKEND !== "supabase") {
@@ -171,6 +178,7 @@ async function purgeCheckData() {
     if (data?.length) await screens.remove(data.map((o) => `${prefix}/${o.name}`));
   }
   await sql`delete from app_spend where month like 'test-%'`;
+  await sql`delete from events where kind like 'check-%'`;
   await sql.end();
 }
 
