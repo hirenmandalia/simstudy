@@ -6,14 +6,15 @@ import { newId, now, type StoreBackend } from "./shared";
 
 /**
  * Project store. Local development keeps everything in files under DATA_DIR;
- * the hosted app (Vercel) uses Supabase. Override with STORE_BACKEND=file|supabase.
+ * the hosted app (Render, Vercel) uses Supabase. Override with STORE_BACKEND=file|supabase.
  */
 
 export { NotFoundError, newId, now, type ProjectSummary } from "./shared";
 
 function backend(): StoreBackend {
-  // `vercel env pull` copies VERCEL=1 into local env files, so also require a production build.
-  const hosted = process.env.VERCEL && process.env.NODE_ENV === "production";
+  // Hosting platforms set VERCEL / RENDER. `vercel env pull` copies VERCEL=1 into
+  // local env files, so also require a production build.
+  const hosted = (process.env.VERCEL || process.env.RENDER) && process.env.NODE_ENV === "production";
   const choice = process.env.STORE_BACKEND ?? (hosted ? "supabase" : "file");
   if (choice === "file") return fileBackend;
   if (choice === "supabase") return supabaseBackend;
