@@ -24,9 +24,19 @@ const g = globalThis as unknown as { __sql?: postgres.Sql; __supabase?: Supabase
 export function postgresUrl(name = "POSTGRES_URL"): string {
   const raw = process.env[name];
   if (!raw) throw new Error(`${name} is not set. Link the Supabase project in Vercel, or set STORE_BACKEND=file.`);
-  const u = new URL(raw);
+  // Percent-encode the password: dashboard strings carry it raw, and characters like # or / break URL parsing.
+  const m = /^(postgres(?:ql)?:\/\/[^:/@]+:)(.*)@([^@]+)$/.exec(raw);
+  const u = new URL(m ? `${m[1]}${encodeURIComponent(safeDecode(m[2]))}@${m[3]}` : raw);
   u.search = "";
   return u.toString();
+}
+
+function safeDecode(s: string) {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
 }
 
 function db(): postgres.Sql {
