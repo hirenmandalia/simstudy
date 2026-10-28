@@ -21,8 +21,8 @@ export default async function ProjectsPage() {
           <>
             <h1 className="text-2xl font-semibold tracking-tight">Start your study</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Your code gives you one study. Name it to begin; the study agent will then interview you about your feature and the
-              decision you need to make.
+              Your code gives you one study. Read the notes below, then name it; the study agent will interview you about your
+              feature and the decision you need to make.
             </p>
           </>
         ) : (
@@ -31,7 +31,7 @@ export default async function ProjectsPage() {
             <p className="mt-1 text-sm text-slate-500">One project per simulated study. Each project keeps its inputs, approvals, transcript and report together, separate from your other projects.</p>
           </>
         )}
-        <ProjectList initial={projects} />
+        <ProjectList initial={projects} pilot={Boolean(user.codeId)} />
       </main>
     </>
   );

@@ -3,11 +3,14 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display-serif), ui-serif, Georgia, serif;
   --color-accent: #4f46e5;
   --color-accent-strong: #4338ca;
   --color-accent-soft: #eef2ff;
   --color-sim: #b45309;
   --color-sim-soft: #fffbeb;
+  --color-paper: #f7f5f0;
+  --color-paper-deep: #efebe3;
 }
 
 :root {
