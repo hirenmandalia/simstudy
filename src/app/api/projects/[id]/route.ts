@@ -5,6 +5,7 @@ import { updateCode } from "@/lib/codes";
 import { agentBusy, needsReconcile, reconcileJobs } from "@/agent/jobs";
 import { toClientProject, type StudyBrief } from "@/lib/types";
 import { audit, agentEvent } from "@/lib/review";
+import { MAX_RESEARCH_QUESTIONS } from "@/lib/schemas";
 
 export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]">) {
   return handle(async () => {
@@ -41,7 +42,10 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/projects/[id]"
           const v = body.brief[k];
           if (k === "researchQuestions") {
             if (!Array.isArray(v)) throw new UserFacingError("Research questions must be a list.");
-            p.brief.researchQuestions = (v as string[]).map((q) => String(q).trim()).filter(Boolean).slice(0, 12);
+            const questions = (v as string[]).map((q) => String(q).trim()).filter(Boolean);
+            if (questions.length > MAX_RESEARCH_QUESTIONS)
+              throw new UserFacingError(`List at most ${MAX_RESEARCH_QUESTIONS} research questions: the ones that matter most for the decision.`);
+            p.brief.researchQuestions = questions;
           } else if (k === "featureStage") {
             if (v !== null && v !== "idea" && v !== "partially_built") throw new UserFacingError("Invalid feature stage.");
             p.brief.featureStage = v as StudyBrief["featureStage"];

@@ -5,11 +5,14 @@ import { z } from "zod";
  *
  * Every field the model fills is required; "optional" values are expressed as
  * nullable so the schemas stay valid for strict tool use and structured outputs.
- * Numeric limits (e.g. the 12-participant cap) are not enforced by the API's
+ * Numeric limits (e.g. the participant cap) are not enforced by the API's
  * schema compiler, so they are re-validated here with zod after every call.
  */
 
-export const MAX_PARTICIPANTS = 12;
+/** Study size limits. They bound the cost and length of a run, so they're enforced, not advisory. */
+export const MAX_PARTICIPANTS = 8;
+export const MAX_RESEARCH_QUESTIONS = 3;
+export const MAX_DISCUSSION_QUESTIONS = 6;
 
 /** SimStudy runs simulated focus groups only (usability tests were removed; see git history). */
 export const StudyMethod = z.enum(["focus_group"]);
@@ -39,9 +42,10 @@ export const BriefUpdate = z.object({
   decisionToSupport: Decision.nullable().describe("The decision this study informs. null = no change."),
   researchQuestions: z
     .array(z.string())
+    .max(MAX_RESEARCH_QUESTIONS)
     .nullable()
     .describe(
-      "Research questions exactly as the PM stated or confirmed them. Replaces the stored list. Never include questions the PM has not confirmed. null = no change.",
+      `Research questions exactly as the PM stated or confirmed them (at most ${MAX_RESEARCH_QUESTIONS}). Replaces the stored list. Never include questions the PM has not confirmed. null = no change.`,
     ),
   targetUsers: z
     .string()
@@ -85,7 +89,11 @@ export const StudyDesignInput = z.object({
   title: z.string().describe("Short study title."),
   featureUnderTest: z.string(),
   decisionToSupport: Decision,
-  researchQuestions: z.array(ResearchQuestion).min(1),
+  researchQuestions: z
+    .array(ResearchQuestion)
+    .min(1)
+    .max(MAX_RESEARCH_QUESTIONS)
+    .describe(`At most ${MAX_RESEARCH_QUESTIONS} research questions in total, the PM's and any you suggest.`),
   method: StudyMethod,
   methodRationale: z.string().describe("Why this method fits the research questions, grounded in the knowledge base."),
   participantCount: z.number().int().min(1).max(MAX_PARTICIPANTS).describe(`Number of simulated participants (1-${MAX_PARTICIPANTS}).`),
@@ -93,7 +101,10 @@ export const StudyDesignInput = z.object({
   sessionOutline: z.array(SessionSection),
   moderatorIntroduction: z.string().describe("What the moderator says to open the session."),
   warmUpQuestions: z.array(z.string()),
-  interviewQuestions: z.array(InterviewQuestion).describe("The focus-group discussion guide: key questions, at most 8."),
+  interviewQuestions: z
+    .array(InterviewQuestion)
+    .max(MAX_DISCUSSION_QUESTIONS)
+    .describe(`The focus-group discussion guide: key questions, at most ${MAX_DISCUSSION_QUESTIONS}.`),
   closingRemarks: z.string(),
   targetUserAssumptions: z.array(z.string()),
   assumptions: z.array(z.string()).describe("Assumptions you made that the PM should check."),

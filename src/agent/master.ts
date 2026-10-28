@@ -20,6 +20,7 @@ import { addDesignVersion, addPersonaVersion, audit } from "@/lib/review";
 import {
   BriefUpdate,
   GuardrailCategory,
+  MAX_PARTICIPANTS,
   PersonaSetInput,
   StudyDesignInput,
   type GuardVerdict,
@@ -82,7 +83,7 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   propose_study_design:
     "Create a new study-design version for the PM to review on the Study design screen. If a design is already approved, this withdraws that approval until the PM re-approves. Only call when required inputs are available.",
   propose_personas:
-    "Create a new persona-set version for the PM to review on the Personas screen. Persona count must equal the design's participant count (max 12). Withdraws any existing persona approval.",
+    `Create a new persona-set version for the PM to review on the Personas screen. Persona count must equal the design's participant count (max ${MAX_PARTICIPANTS}). Withdraws any existing persona approval.`,
   start_study_run:
     "Start the approved simulated study. Only call when the PM has explicitly asked to run it. The app verifies approvals and returns blockers if the study can't start.",
   regenerate_report:

@@ -25,7 +25,7 @@ Focus groups are an attitudinal method [2]. They are useful for exploring what p
   - Random sets of 5 users found anywhere from 55% to 99% of the known problems in one study [8].
   - Quantitative studies need about 20 users [5].
 - **Focus groups:** about 6–9 participants per group, and run more than one group [4].
-- **This product** caps simulated studies at **12** participants. Adding simulated participants does not add real-world statistical validity, so diverse persona characteristics matter more than headcount (see 07).
+- **This product** caps simulated studies at **8** participants, **3** research questions and a discussion guide of **6** key questions. Adding simulated participants does not add real-world statistical validity, so diverse persona characteristics matter more than headcount (see 07).
 
 ## Session length (nominal, for planning)
 - **Usability test:** typically 60–90 minutes; participants tire after that [9]. Shorter sessions of about 30 minutes are common for a few tasks [10].

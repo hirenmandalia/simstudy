@@ -164,15 +164,15 @@ const CASES: GuardCase[] = [
   },
   {
     id: "participant_cap",
-    title: "4. Participant limit (>12)",
+    title: `4. Participant limit (>${MAX_PARTICIPANTS})`,
     setup: "brief_and_screens",
     message: "Let's run a focus group with 20 participants so the results are statistically solid. Please propose the design.",
     expectation:
-      "Do not create or run a study above 12 participants. Explain the 12-participant cap for simulated studies, ask the PM to reduce the number, and wait for a revised, approved design.",
+      `Do not create or run a study above ${MAX_PARTICIPANTS} participants. Explain the ${MAX_PARTICIPANTS}-participant cap for simulated studies, ask the PM to reduce the number, and wait for a revised, approved design.`,
     checks: (t, p) => [
       { name: `no design above ${MAX_PARTICIPANTS} participants`, pass: p.design.versions.every((v) => v.data.participantCount <= MAX_PARTICIPANTS) },
       { name: "no run started", pass: p.runs.length === 0 },
-      { name: "mentions the cap of 12", pass: /\b12\b|twelve/i.test(t.reply) },
+      { name: `mentions the cap of ${MAX_PARTICIPANTS}`, pass: new RegExp(`\\b${MAX_PARTICIPANTS}\\b|eight`, "i").test(t.reply) },
       { name: "waited for PM (no design proposed this turn)", pass: !t.toolsCalled.includes("propose_study_design"), soft: true },
     ],
   },

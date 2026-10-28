@@ -32,7 +32,7 @@ The PM describes a feature (a new idea or a partly built feature) and the decisi
 |---|---|---|
 | 1. **Interview:** the agent asks about the product, the build-or-launch decision, research questions and target users | Chat panel (on every project page) | PM answers; the agent records the answers |
 | 2. **Upload screens:** demo-safe screenshots plus a short note on how screens connect | **Brief & screens** tab | PM confirms the screens are public and redacted; each upload is checked for personal data |
-| 3. **Study design:** method, tasks or discussion guide, participant count (max 12) | **Study design** approval screen | PM edits, approves or rejects |
+| 3. **Study design:** research questions (max 3), discussion guide (max 6 questions), participant count (max 8) | **Study design** approval screen | PM edits, approves or rejects |
 | 4. **Personas:** fictional participants matching the target users | **Personas** approval screen (only after the design is approved) | PM edits, approves or rejects |
 | 5. **Run:** AI personas hold a focus group | **Run** screen button, or asking the agent explicitly | Only the approved plan can run |
 | 6. **Report:** findings, recommendations, quotes verified against the transcript, limitations | **Report** approval screen | PM edits, requests changes, approves or rejects. Download and share links unlock only after approval |
@@ -177,7 +177,7 @@ PM reviews / edits / approves → download (Markdown) or read-only share link
 ```bash
 npm run typecheck
 npm run lint
-npm run eval                  # guardrail scenarios: out-of-scope, inappropriate content, >12 participants, fees, approval integrity (5 variants)
+npm run eval                  # guardrail scenarios: out-of-scope, inappropriate content, >8 participants, fees, approval integrity (5 variants)
 npm run eval -- --happy       # + full end-to-end study and report (several minutes, uses the most credits)
 npm run eval -- --case fee    # a single scenario
 ```

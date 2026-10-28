@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { checkDesign } from "@/lib/gates";
-import { MAX_PARTICIPANTS, type StudyDesignInput } from "@/lib/schemas";
+import { MAX_DISCUSSION_QUESTIONS, MAX_PARTICIPANTS, MAX_RESEARCH_QUESTIONS, type StudyDesignInput } from "@/lib/schemas";
 import { currentVersion } from "@/lib/types";
 import { useProject } from "./ProjectContext";
 import { ReviewBar, useReviewApi } from "./ReviewBar";
@@ -231,8 +231,18 @@ function DesignEditor({ initial, onDone }: { initial: StudyDesignInput; onDone: 
       </Card>
 
       <Card>
-        <SectionTitle aside={<Button size="sm" onClick={() => set("researchQuestions", [...d.researchQuestions, { id: `RQ${d.researchQuestions.length + 1}`, text: "", origin: "pm" }])}>Add</Button>}>
-          Research questions
+        <SectionTitle
+          aside={
+            <Button
+              size="sm"
+              disabled={d.researchQuestions.length >= MAX_RESEARCH_QUESTIONS}
+              onClick={() => set("researchQuestions", [...d.researchQuestions, { id: `RQ${d.researchQuestions.length + 1}`, text: "", origin: "pm" }])}
+            >
+              Add {d.researchQuestions.length >= MAX_RESEARCH_QUESTIONS ? `(max ${MAX_RESEARCH_QUESTIONS})` : ""}
+            </Button>
+          }
+        >
+          Research questions (up to {MAX_RESEARCH_QUESTIONS})
         </SectionTitle>
         <div className="space-y-2">
           {d.researchQuestions.map((q, i) => (
@@ -269,12 +279,16 @@ function DesignEditor({ initial, onDone }: { initial: StudyDesignInput; onDone: 
       <Card>
         <SectionTitle
           aside={
-            <Button size="sm" onClick={() => set("interviewQuestions", [...d.interviewQuestions, { id: `Q${d.interviewQuestions.length + 1}`, question: "", probes: [], relatedQuestionIds: [] }])}>
-              Add question
+            <Button
+              size="sm"
+              disabled={d.interviewQuestions.length >= MAX_DISCUSSION_QUESTIONS}
+              onClick={() => set("interviewQuestions", [...d.interviewQuestions, { id: `Q${d.interviewQuestions.length + 1}`, question: "", probes: [], relatedQuestionIds: [] }])}
+            >
+              Add question {d.interviewQuestions.length >= MAX_DISCUSSION_QUESTIONS ? `(max ${MAX_DISCUSSION_QUESTIONS})` : ""}
             </Button>
           }
         >
-          Discussion guide
+          Discussion guide (up to {MAX_DISCUSSION_QUESTIONS} questions)
         </SectionTitle>
         <div className="space-y-4">
           {d.interviewQuestions.map((q, i) => {

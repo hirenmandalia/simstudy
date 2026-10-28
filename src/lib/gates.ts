@@ -1,4 +1,4 @@
-import { MAX_PARTICIPANTS, type PersonaSetInput, type StudyDesignInput } from "./schemas";
+import { MAX_DISCUSSION_QUESTIONS, MAX_PARTICIPANTS, MAX_RESEARCH_QUESTIONS, type PersonaSetInput, type StudyDesignInput } from "./schemas";
 import { approvedVersion, currentVersion, latestRun, type Project } from "./types";
 
 /**
@@ -22,6 +22,10 @@ export function checkDesign(design: StudyDesignInput, project: Pick<Project, "sc
   if (design.participantCount > MAX_PARTICIPANTS)
     blocking.push(`Simulated studies are capped at ${MAX_PARTICIPANTS} participants (design has ${design.participantCount}).`);
   if (!design.researchQuestions.length) blocking.push("Add at least one research question.");
+  if (design.researchQuestions.length > MAX_RESEARCH_QUESTIONS)
+    blocking.push(
+      `A study can answer at most ${MAX_RESEARCH_QUESTIONS} research questions (design has ${design.researchQuestions.length}). Keep the ones that matter most for the decision.`,
+    );
   const suggested = design.researchQuestions.filter((q) => q.origin === "agent_suggested");
   if (suggested.length)
     warnings.push(
@@ -34,7 +38,10 @@ export function checkDesign(design: StudyDesignInput, project: Pick<Project, "sc
   if (!design.interviewQuestions.length) blocking.push("A focus group needs a discussion guide (at least one question).");
   if (!project.screens.length)
     warnings.push("No screens uploaded: participants will react to the written concept only, which gives weaker evidence.");
-  if (design.interviewQuestions.length > 8) warnings.push("More than 8 discussion questions is a lot for one session.");
+  if (design.interviewQuestions.length > MAX_DISCUSSION_QUESTIONS)
+    blocking.push(
+      `The discussion guide can have at most ${MAX_DISCUSSION_QUESTIONS} questions (it has ${design.interviewQuestions.length}).`,
+    );
 
   const covered = new Set(design.interviewQuestions.flatMap((q) => q.relatedQuestionIds));
   for (const rq of design.researchQuestions) {

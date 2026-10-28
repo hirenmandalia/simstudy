@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { StudyBrief } from "@/lib/types";
 import { useProject } from "./ProjectContext";
 import { Badge, Button, Callout, Card, Field, inputClass, SectionTitle, SimLabel } from "./ui";
+import { MAX_RESEARCH_QUESTIONS } from "@/lib/schemas";
 
 export function BriefAndScreens() {
   return (
@@ -126,8 +127,11 @@ function BriefCard() {
           <Field label="Feature">
             <textarea className={inputClass} rows={3} value={draft.featureDescription ?? ""} onChange={(e) => setDraft({ ...draft, featureDescription: e.target.value })} />
           </Field>
-          <Field label="Research questions" hint="One per line. These are yours; the agent may suggest others but can't confirm them.">
-            <textarea className={inputClass} rows={4} value={rqText} onChange={(e) => setRqText(e.target.value)} />
+          <Field
+            label={`Research questions (up to ${MAX_RESEARCH_QUESTIONS})`}
+            hint={`One per line, at most ${MAX_RESEARCH_QUESTIONS}: the ones that matter most for the decision. These are yours; the agent may suggest others but can't confirm them.`}
+          >
+            <textarea className={inputClass} rows={MAX_RESEARCH_QUESTIONS} value={rqText} onChange={(e) => setRqText(e.target.value)} />
           </Field>
           <Field label="Target users">
             <textarea className={inputClass} rows={2} value={draft.targetUsers ?? ""} onChange={(e) => setDraft({ ...draft, targetUsers: e.target.value })} />
