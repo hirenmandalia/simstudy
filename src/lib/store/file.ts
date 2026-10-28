@@ -100,6 +100,17 @@ async function withCodes<T>(fn: (f: CodeFile) => T): Promise<T> {
   });
 }
 
+const SPEND_FILE = path.join(DATA_DIR, "spend.json");
+
+async function readSpend(): Promise<Record<string, number>> {
+  try {
+    return await readJson<Record<string, number>>(SPEND_FILE);
+  } catch (e) {
+    if (e instanceof NotFoundError) return {};
+    throw e;
+  }
+}
+
 async function read(userId: string, projectId: string): Promise<Project> {
   const p = await readJson<Project>(path.join(projectDir(userId, projectId), "project.json"));
   if (p.ownerId !== userId || p.id !== projectId) throw new NotFoundError("Not found");
@@ -223,6 +234,18 @@ export const fileBackend: StoreBackend = {
       f.attempts = f.attempts.filter((a) => a.at > dayAgo);
       f.attempts.push({ key, at: new Date().toISOString() });
     });
+  },
+
+  async addSpend(month, usd) {
+    await withLock(SPEND_FILE, async () => {
+      const spend = await readSpend();
+      spend[month] = (spend[month] ?? 0) + usd;
+      await writeJsonAtomic(SPEND_FILE, spend);
+    });
+  },
+
+  async getSpend(month) {
+    return (await readSpend())[month] ?? 0;
   },
 
   async countFailedAttempts(key, sinceIso) {

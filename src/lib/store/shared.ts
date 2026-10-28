@@ -101,4 +101,8 @@ export interface StoreBackend {
   recordFailedAttempt(key: string): Promise<void>;
   /** Failed code entries since `sinceIso`, for one key (e.g. an IP) or for all when key is null. */
   countFailedAttempts(key: string | null, sinceIso: string): Promise<number>;
+
+  /** App-wide AI spend ledger, one running total per calendar month ("2026-10"). */
+  addSpend(month: string, usd: number): Promise<void>;
+  getSpend(month: string): Promise<number>;
 }

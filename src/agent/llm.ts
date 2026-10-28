@@ -5,7 +5,8 @@ import type {
   MessageCreateParamsNonStreaming,
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import type { z } from "zod";
-import type { UsageTotals } from "@/lib/types";
+import { emptyUsage, type UsageTotals } from "@/lib/types";
+import { assertAppBudget, recordSpend } from "@/lib/spend";
 
 /**
  * Single entry point for every Claude call in the app.
@@ -14,7 +15,8 @@ import type { UsageTotals } from "@/lib/types";
  * - Server-side refusal fallbacks (`fallbacks: "default"`) are on for
  *   generation calls; classifier-style calls (guard, screen check) opt out so a
  *   refusal is treated as a "block" signal instead of being rerouted.
- * - Usage is metered into a caller-provided totals object.
+ * - Usage is metered into a caller-provided totals object, and every call's
+ *   cost counts towards the app-wide monthly cap (checked before each call).
  */
 
 export const MODELS = {
@@ -74,6 +76,14 @@ function addUsage(totals: UsageTotals | undefined, msg: BetaMessage) {
   m.cacheWriteTokens += msg.usage.cache_creation_input_tokens ?? 0;
 }
 
+/** Meter a finished call: the caller's totals plus the app-wide monthly ledger. */
+async function meter(opts: CallOptions, msg: BetaMessage) {
+  addUsage(opts.usage, msg);
+  const one = emptyUsage();
+  addUsage(one, msg);
+  await recordSpend(one);
+}
+
 function withBetas<T extends BaseParams>(params: T, opts: CallOptions) {
   const fallbacks = opts.fallbacks ?? true;
   const betas = [...(fallbacks ? [FALLBACK_BETA] : []), ...(opts.betas ?? [])];
@@ -86,15 +96,17 @@ function withBetas<T extends BaseParams>(params: T, opts: CallOptions) {
 
 /** Plain (non-streaming) call. Used for the master agent's tool loop. */
 export async function createMessage(params: BaseParams, opts: CallOptions = {}): Promise<BetaMessage> {
+  await assertAppBudget();
   const msg = await client().beta.messages.create(withBetas(params, opts));
-  addUsage(opts.usage, msg);
+  await meter(opts, msg);
   return msg;
 }
 
 /** Text completion via streaming (safe for long outputs). Throws on refusal/truncation. */
 export async function completeText(params: BaseParams, opts: CallOptions = {}): Promise<{ text: string; message: BetaMessage }> {
+  await assertAppBudget();
   const msg = await client().beta.messages.stream(withBetas(params, opts)).finalMessage();
-  addUsage(opts.usage, msg);
+  await meter(opts, msg);
   if (msg.stop_reason === "refusal") throw new RefusalError(msg.stop_details?.category ?? null);
   if (msg.stop_reason === "max_tokens") throw new TruncatedError();
   const text = msg.content
@@ -115,6 +127,7 @@ export async function completeStructured<S extends z.ZodType>(
   schema: S,
   opts: CallOptions = {},
 ): Promise<{ data: z.infer<S>; message: BetaMessage }> {
+  await assertAppBudget();
   const stream = client().beta.messages.stream(
     withBetas(
       {
@@ -125,7 +138,7 @@ export async function completeStructured<S extends z.ZodType>(
     ),
   );
   const msg = await stream.finalMessage();
-  addUsage(opts.usage, msg);
+  await meter(opts, msg);
   if (msg.stop_reason === "refusal") throw new RefusalError(msg.stop_details?.category ?? null);
   if (msg.stop_reason === "max_tokens") throw new TruncatedError();
   const parsed = (msg as { parsed_output?: unknown }).parsed_output;

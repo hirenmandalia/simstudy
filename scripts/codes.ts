@@ -15,6 +15,7 @@
 import { codeStatus, createAccessCode, DEFAULT_CAP_USD, DEFAULT_VALID_DAYS, getCode, listCodes, updateCode } from "@/lib/codes";
 import { projectSpendUsd } from "@/lib/budget";
 import { getProject, now } from "@/lib/store";
+import { APP_MONTHLY_CAP_USD, currentMonth, monthSpendUsd } from "@/lib/spend";
 
 const [command, ...rest] = process.argv.slice(2);
 
@@ -51,7 +52,11 @@ async function main() {
     }
     case "list": {
       const codes = await listCodes();
-      if (!codes.length) return console.log("No codes yet. Create one with: npm run codes -- create --label \"…\"");
+      if (!codes.length) {
+        console.log("No codes yet. Create one with: npm run codes -- create --label \"…\"");
+        console.log(`App-wide AI spend in ${currentMonth()}: $${(await monthSpendUsd()).toFixed(2)} of $${APP_MONTHLY_CAP_USD.toFixed(2)}`);
+        return;
+      }
       const rows = await Promise.all(
         codes.map(async (c) => {
           let study = "-";
@@ -75,6 +80,7 @@ async function main() {
         }),
       );
       console.table(rows);
+      console.log(`App-wide AI spend in ${currentMonth()}: $${(await monthSpendUsd()).toFixed(2)} of $${APP_MONTHLY_CAP_USD.toFixed(2)}`);
       break;
     }
     case "disable": {

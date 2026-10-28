@@ -10,7 +10,7 @@ const PRICES: Record<string, { input: number; output: number; cacheRead: number;
   "claude-haiku-4-5": { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
 };
 
-function priceFor(model: string) {
+export function priceFor(model: string) {
   // Responses may report a dated id (e.g. claude-haiku-4-5-20251001); match on prefix.
   const key = Object.keys(PRICES).find((k) => model === k || model.startsWith(`${k}-`));
   return key ? PRICES[key] : null;

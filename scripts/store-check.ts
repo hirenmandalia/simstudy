@@ -129,6 +129,15 @@ async function main() {
     assert.ok(!blocked.ok && blocked.reason === "rate_limited", "9th guess blocked");
   });
 
+  await step("monthly spend ledger adds up", async () => {
+    const month = `test-${Date.now()}`;
+    await Promise.all([0.5, 0.25, 0.125].map((usd) => backend().addSpend(month, usd)));
+    assert.equal(await backend().getSpend(month), 0.875);
+    assert.equal(await backend().getSpend(`${month}-none`), 0);
+    // A "test-…" month never matches a real one ("2026-10"); on Supabase, delete these rows with
+    // `delete from app_spend where month like 'test-%'` if they bother you.
+  });
+
   console.log("all store checks passed");
   process.exit(0);
 }

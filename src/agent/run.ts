@@ -23,7 +23,9 @@ import {
   type StudyDesignInput,
 } from "@/lib/schemas";
 import { approvedVersion, copyUsage, emptyUsage, mergeUsage, type Run, type Screen, type TranscriptLine, type UsageTotals } from "@/lib/types";
-import { budgetCapFor, budgetMessage, budgetProblem, usageUsd } from "@/lib/budget";
+import { budgetCapFor, budgetMessage, budgetProblem, projectSpendUsd, usageUsd } from "@/lib/budget";
+import { APP_MONTHLY_CAP_USD, monthSpendUsd } from "@/lib/spend";
+import { estimateRunCost } from "./estimate";
 
 type Effort = "low" | "medium" | "high";
 const PERSONA_EFFORT = (process.env.PERSONA_EFFORT as Effort | undefined) ?? "low";
@@ -41,7 +43,7 @@ export async function startRun(
   projectId: string,
   initiatedBy: string,
 ): Promise<{ started: true; runId: string } | { started: false; blockers: string[] }> {
-  const overBudget = await budgetProblem(userId, projectId);
+  const overBudget = (await budgetProblem(userId, projectId)) ?? (await runCostProblem(userId, projectId));
   if (overBudget) return { started: false, blockers: [overBudget] };
   const { result } = await updateProject(userId, projectId, (p) => {
     const blockers = runGate(p);
@@ -90,6 +92,33 @@ export async function startRun(
     void executeRun(userId, projectId, result.runId).finally(() => activeRuns.delete(result.runId));
   }
   return result;
+}
+
+/**
+ * Block a run (and the report that follows it) that is unlikely to fit in what's
+ * left of the code's budget or of the app's monthly cap. The mid-run budget stop
+ * remains the backstop if the estimate is low.
+ */
+async function runCostProblem(userId: string, projectId: string): Promise<string | null> {
+  const p = await getProject(userId, projectId);
+  const design = approvedVersion(p.design);
+  const personas = approvedVersion(p.personas);
+  if (!design || !personas) return null; // the run gate explains what's missing
+  const est = estimateRunCost({
+    participants: personas.data.personas.length,
+    questions: design.data.interviewQuestions.length,
+    screens: p.screens.length,
+  });
+  const cost = `about $${est.totalUsd.toFixed(2)} including the report`;
+  const cap = await budgetCapFor(userId);
+  if (cap !== null) {
+    const left = Math.max(0, cap - projectSpendUsd(p));
+    if (est.totalUsd > left)
+      return `This run is estimated to cost ${cost}, but this study has $${left.toFixed(2)} of its $${cap.toFixed(2)} AI budget left. Use fewer personas or discussion questions, or ask the person who gave you your code for more budget.`;
+  }
+  if ((await monthSpendUsd()) + est.totalUsd > APP_MONTHLY_CAP_USD)
+    return `This run is estimated to cost ${cost}, which would take SimStudy over its AI spending limit for this month. Your study is saved; tell the person who gave you your code.`;
+  return null;
 }
 
 function estimateSteps(design: StudyDesignInput, n: number): number {

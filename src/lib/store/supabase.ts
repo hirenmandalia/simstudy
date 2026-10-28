@@ -246,6 +246,17 @@ export const supabaseBackend: StoreBackend = {
     await sql`delete from code_attempts where at < now() - interval '1 day'`;
   },
 
+  async addSpend(month, usd) {
+    await db()`
+      insert into app_spend (month, usd) values (${month}, ${usd})
+      on conflict (month) do update set usd = app_spend.usd + excluded.usd, updated_at = now()`;
+  },
+
+  async getSpend(month) {
+    const [row] = await db()<{ usd: string }[]>`select usd from app_spend where month = ${month}`;
+    return row ? Number(row.usd) : 0;
+  },
+
   async countFailedAttempts(key, sinceIso) {
     const sql = db();
     const [row] = key === null
